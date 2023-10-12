@@ -1,6 +1,9 @@
 version: '3.9'
 
+# Services
 services:
+
+  # Database service
   surrealdb:
     image: surrealdb/surrealdb:latest
 
