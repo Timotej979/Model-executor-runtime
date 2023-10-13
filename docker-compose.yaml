@@ -5,7 +5,7 @@ services:
 
   # Database service
   surrealdb:
-    image: surrealdb/surrealdb:latest
+    image: surrealdb/surrealdb:1.0.0
 
     env_file:
       - .env

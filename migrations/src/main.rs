@@ -1,7 +1,43 @@
+// Logging
+use env_logger::{ Builder, Logger};
+use log::LevelFilter;
+
+// SurrealDB
 use once_cell::sync::Lazy;
 use surrealdb::Surreal;
 use surrealdb::engine::remote::ws::{Client, Ws, Wss};
 use surrealdb::opt::auth::Root;
+
+
+struct LoggerManager {
+    loggers: Vec<Logger>,
+}
+
+impl LoggerManager {
+    fn new(logger_prefixes: &[&str], log_coloring: bool) -> Self {
+        let mut loggers = Vec::new();
+
+        for logger_prefix in logger_prefixes {
+            let mut builder = Builder::from_default_env();
+
+            if log_coloring {
+                builder.write_style(env_logger::WriteStyle::Always);
+            }
+
+            builder.filter_module(logger_prefix, LevelFilter::Debug);
+            let logger = builder.build();
+
+            loggers.push(logger);
+        }
+
+        Self { loggers }
+    }
+
+    fn get_loggers(&self) -> &[Logger] {
+        &self.loggers
+    }
+}
+
 
 
 struct MigrationManager {
@@ -14,7 +50,7 @@ struct MigrationManager {
 }
 
 impl MigrationManager {
-    fn new(
+    fn new( 
         connection_url: String,
         username: String,
         password: String,
@@ -34,7 +70,7 @@ impl MigrationManager {
     async fn connect(&mut self) -> surrealdb::Result<()> {
 
         // Check if the connection URL includes localhost
-        if self.connection_url.contains("localhost") {
+        if self.connection_url.starts_with("localhost:") || self.connection_url.starts_with("127.0.0.1:") || self.connection_url.starts_with("0.0.0.0:") {
             // Use ws
             let _ = &self.db_conn.connect::<Ws>(&self.connection_url).await?;
         } else {
@@ -59,10 +95,21 @@ impl MigrationManager {
     async fn migrate(&mut self) -> surrealdb::Result<()> {
         
         // Check if migration table exists
-        let migrations_exist = &self.db_conn.query("SELECT * FROM Migrations;").await?;
-        dbg!(migrations_exist);
-
+        let migrations_exist = &mut self.db_conn.query("SELECT num FROM Migrations ORDER BY num DESC LIMIT 1 ;").await?;
         
+        let num: Vec<String> = migrations_exist.take("num")?;
+
+
+        if num.is_empty() {
+            // Create the migrations table
+            let _ = &self.db_conn.query("
+                DEFINE TABLE Migrations SCHEMALESS;
+                DEFINE FIELD num ON TABLE Migrations TYPE number ASSERT $value != NONE AND $value != NULL; 
+                DEFINE FIELD operation ON TABLE Migrations TYPE string ASSERT $value != NONE AND $value != NULL;
+                DEFINE FIELD timestamp ON TABLE Migrations TYPE datetime ASSERT $value != NONE AND $value != NULL;
+            ").await?;
+        }
+
         
         // TODO: Parse the table_exists to check if the table exists
 
@@ -83,6 +130,17 @@ impl MigrationManager {
 
 #[tokio::main]
 async fn main() -> surrealdb::Result<()> {
+    // Create a new LoggerManager
+    let logger_prefixes = ["MAIN", "DAL", "SCHEDULER"];
+    let loggers = LoggerManager::new(&logger_prefixes, true);
+
+    for logger in loggers.get_loggers() {
+        logger.debug("This is a debug log");
+        logger.warn("This is a warn log");
+        logger.info("This is an info log");
+        logger.error("This is an error log");
+    }
+
     // Create a new MigrationManager
     let mut manager = MigrationManager::new(
         // Connection URL
