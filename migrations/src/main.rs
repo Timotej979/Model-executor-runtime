@@ -1,44 +1,91 @@
 // Logging
-use env_logger::{ Builder, Logger};
-use log::LevelFilter;
+use chrono::prelude::{DateTime, Utc};
+use std::sync::{Arc};
+use ansi_term::Colour;
+use std::time::SystemTime;
+use logging::{Handler, Level, Message};
 
 // SurrealDB
 use once_cell::sync::Lazy;
 use surrealdb::Surreal;
 use surrealdb::engine::remote::ws::{Client, Ws, Wss};
-use surrealdb::opt::auth::Root;
+use surrealdb::opt::auth::Root as surrealRoot;
 
 
-struct LoggerManager {
-    loggers: Vec<Logger>,
+
+///////////////////////////////////////////////////////////////////////////////////////
+// Initialize the custom logger format for logging crate
+pub struct PublicMessage {
+    /// The level of the message.
+    level: Level,
+    /// The full name of the logger.
+    name: String,
+    /// The timestamp of creation.
+    created: SystemTime,
+    /// The message string itself.
+    msg: String,
 }
 
-impl LoggerManager {
-    fn new(logger_prefixes: &[&str], log_coloring: bool) -> Self {
+struct CustomLoggingHandler {}
+
+impl Handler for CustomLoggingHandler {
+    fn emit(&self, msg: &Message) {
+        // Create a public message with the same data
+        let public_msg = unsafe { std::mem::transmute::<&Message, &PublicMessage>(msg) };
+
+        let timestamp: DateTime<Utc> = public_msg.created.clone().into();
+
+        // Parse the level to human-readable format
+        let data = match public_msg.level {
+            Level::DEBUG => Colour::Cyan.paint(format!("{} | DEBUG [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
+            Level::INFO => Colour::Green.paint(format!("{} | INFO [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
+            Level::WARN => Colour::Yellow.paint(format!("{} | WARN [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
+            Level::ERROR => Colour::Red.paint(format!("{} | ERROR [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
+            Level::FATAL => Colour::Red.bold().paint(format!("{} | FATAL [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
+            Level::NONE => Colour::White.paint(""),
+        };
+
+        print!("{}", data);
+    }
+}
+
+// Initialize the loggers
+struct InitLoggers {
+    prefixes: Vec<String>
+}
+
+impl InitLoggers {
+    fn new(prefixes: Vec<String>) -> Self {
+        Self {
+            prefixes
+        }
+    }
+
+    fn build(&self) -> Vec<logging::Logger> {
+        // Initialize the logger
+        logging::root().add_handler(Arc::new(Box::new(CustomLoggingHandler {})));
+
+        // Initialize the loggers vector
         let mut loggers = Vec::new();
 
-        for logger_prefix in logger_prefixes {
-            let mut builder = Builder::from_default_env();
+        // Iterate through the prefixes
+        for prefix in &self.prefixes {
+            // Create a new logger
+            let log = logging::get(prefix);
 
-            if log_coloring {
-                builder.write_style(env_logger::WriteStyle::Always);
-            }
-
-            builder.filter_module(logger_prefix, LevelFilter::Debug);
-            let logger = builder.build();
-
-            loggers.push(logger);
+            // Push the logger to the loggers vector
+            loggers.push(log);
         }
 
-        Self { loggers }
-    }
-
-    fn get_loggers(&self) -> &[Logger] {
-        &self.loggers
+        // Return the loggers vector
+        return loggers;
     }
 }
 
 
+
+///////////////////////////////////////////////////////////////////////////////////////
+// MigrationManager
 
 struct MigrationManager {
     connection_url: String,
@@ -79,7 +126,7 @@ impl MigrationManager {
         }
 
         // Sign in as root
-        let _ = &self.db_conn.signin(Root {
+        let _ = &self.db_conn.signin(surrealRoot {
             username: &self.username,
             password: &self.password,
         })
@@ -130,16 +177,39 @@ impl MigrationManager {
 
 #[tokio::main]
 async fn main() -> surrealdb::Result<()> {
-    // Create a new LoggerManager
-    let logger_prefixes = ["MAIN", "DAL", "SCHEDULER"];
-    let loggers = LoggerManager::new(&logger_prefixes, true);
 
-    for logger in loggers.get_loggers() {
-        logger.debug("This is a debug log");
-        logger.warn("This is a warn log");
-        logger.info("This is an info log");
-        logger.error("This is an error log");
-    }
+    // Log the start of the migration
+    logging::info("Starting the migration");
+
+    // TODO: Parse the CLI arguments with clap
+
+    // Set the prefixes
+    let prefixes: Vec<String> = vec![
+        "migrations::main".to_string(),
+        "migrations::migration_manager".to_string()
+    ];
+
+    // Initialize the loggers
+    let loggers = InitLoggers::new(prefixes).build();
+
+    let main_logger = &loggers[0];
+    let migration_manager_logger = &loggers[1];
+
+    main_logger.info("Initialized the loggers");
+    main_logger.debug("Initialized the loggers");
+    main_logger.warn("Initialized the loggers");
+    main_logger.error("Initialized the loggers");
+    main_logger.fatal("Initialized the loggers");
+
+    migration_manager_logger.info("Initialized the loggers");
+    migration_manager_logger.debug("Initialized the loggers");
+    migration_manager_logger.warn("Initialized the loggers");
+    migration_manager_logger.error("Initialized the loggers");
+    migration_manager_logger.fatal("Initialized the loggers");
+    
+
+
+
 
     // Create a new MigrationManager
     let mut manager = MigrationManager::new(
