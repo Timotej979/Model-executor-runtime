@@ -1,9 +1,12 @@
-// Logging
-use chrono::prelude::{DateTime, Utc};
-use std::sync::{Arc};
-use ansi_term::Colour;
-use std::time::SystemTime;
-use logging::{Handler, Level, Message};
+// Logging with env_logger
+use env_logger;
+
+// CLI arg parsing with clap
+use clap::Parser;
+
+// File reading and regex
+use regex::Regex;
+use std::fs;
 
 // SurrealDB
 use once_cell::sync::Lazy;
@@ -14,79 +17,26 @@ use surrealdb::opt::auth::Root as surrealRoot;
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-// Initialize the custom logger format for logging crate
-pub struct PublicMessage {
-    /// The level of the message.
-    level: Level,
-    /// The full name of the logger.
-    name: String,
-    /// The timestamp of creation.
-    created: SystemTime,
-    /// The message string itself.
-    msg: String,
+// Parse CLI args using the clap crate with the Derive API
+#[derive(Parser)]
+#[command(name = "Model-executor-runtime-Migrations (MER-Migrations)")]
+#[command(author = "Timotej979 @ GitHub")]
+#[command(version = "1.0")]
+#[command(about = "Migrates the required DB schema for running the MER", long_about = None)]
+struct Cli {
+    #[arg(short, long, env = "MIGRATIONS_CONNECTION_URL", default_value = "localhost:4321")]
+    connection_url: String,
+    
+    #[arg(short, long, env = "MIGRATIONS_USERNAME", default_value = "driver")]
+    username: String,
+    
+    #[arg(short, long, env = "MIGRATIONS_PASSWORD", default_value = "M0d3lDr1v3r")]
+    password: String,
 }
-
-struct CustomLoggingHandler {}
-
-impl Handler for CustomLoggingHandler {
-    fn emit(&self, msg: &Message) {
-        // Create a public message with the same data
-        let public_msg = unsafe { std::mem::transmute::<&Message, &PublicMessage>(msg) };
-
-        let timestamp: DateTime<Utc> = public_msg.created.clone().into();
-
-        // Parse the level to human-readable format
-        let data = match public_msg.level {
-            Level::DEBUG => Colour::Cyan.paint(format!("{} | DEBUG [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
-            Level::INFO => Colour::Green.paint(format!("{} | INFO [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
-            Level::WARN => Colour::Yellow.paint(format!("{} | WARN [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
-            Level::ERROR => Colour::Red.paint(format!("{} | ERROR [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
-            Level::FATAL => Colour::Red.bold().paint(format!("{} | FATAL [{:15}] {}\n", timestamp, public_msg.name, public_msg.msg)),
-            Level::NONE => Colour::White.paint(""),
-        };
-
-        print!("{}", data);
-    }
-}
-
-// Initialize the loggers
-struct InitLoggers {
-    prefixes: Vec<String>
-}
-
-impl InitLoggers {
-    fn new(prefixes: Vec<String>) -> Self {
-        Self {
-            prefixes
-        }
-    }
-
-    fn build(&self) -> Vec<logging::Logger> {
-        // Initialize the logger
-        logging::root().add_handler(Arc::new(Box::new(CustomLoggingHandler {})));
-
-        // Initialize the loggers vector
-        let mut loggers = Vec::new();
-
-        // Iterate through the prefixes
-        for prefix in &self.prefixes {
-            // Create a new logger
-            let log = logging::get(prefix);
-
-            // Push the logger to the loggers vector
-            loggers.push(log);
-        }
-
-        // Return the loggers vector
-        return loggers;
-    }
-}
-
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // MigrationManager
-
 struct MigrationManager {
     connection_url: String,
     username: String,
@@ -94,6 +44,7 @@ struct MigrationManager {
     namespace: String,
     database: String,
     db_conn: Lazy<Surreal<Client>>,
+    migration_file_regex: Regex,
 }
 
 impl MigrationManager {
@@ -111,10 +62,15 @@ impl MigrationManager {
             namespace,
             database,
             db_conn: Lazy::new(Surreal::init),
+            migration_file_regex: Regex::new(r"^(?P<number>\d{2})-(?P<name>\w+)\.sql$").expect("Failed to compile the migration file regex"),
         })
     }
 
+    // Connect to DB
     async fn connect(&mut self) -> surrealdb::Result<()> {
+
+        // Log connection
+        log::info!("Connecting to DB with url {} and username {}", self.connection_url, self.username);
 
         // Check if the connection URL includes localhost
         if self.connection_url.starts_with("localhost:") || self.connection_url.starts_with("127.0.0.1:") || self.connection_url.starts_with("0.0.0.0:") {
@@ -139,23 +95,55 @@ impl MigrationManager {
         Ok(())
     }
 
+    // Migrate the DB
     async fn migrate(&mut self) -> surrealdb::Result<()> {
-        
         // Check if migration table exists
         let migrations_exist = &mut self.db_conn.query("SELECT num FROM Migrations ORDER BY num DESC LIMIT 1 ;").await?;
         
         let num: Vec<String> = migrations_exist.take("num")?;
 
-
         if num.is_empty() {
-            // Create the migrations table
             let _ = &self.db_conn.query("
-                DEFINE TABLE Migrations SCHEMALESS;
-                DEFINE FIELD num ON TABLE Migrations TYPE number ASSERT $value != NONE AND $value != NULL; 
-                DEFINE FIELD operation ON TABLE Migrations TYPE string ASSERT $value != NONE AND $value != NULL;
-                DEFINE FIELD timestamp ON TABLE Migrations TYPE datetime ASSERT $value != NONE AND $value != NULL;
-            ").await?;
+                    DEFINE TABLE Migrations SCHEMALESS;
+                    DEFINE FIELD num ON TABLE Migrations TYPE number ASSERT $value != NONE AND $value != NULL; 
+                    DEFINE FIELD operation ON TABLE Migrations TYPE string ASSERT $value != NONE AND $value != NULL;
+                    DEFINE FIELD timestamp ON TABLE Migrations TYPE datetime ASSERT $value != NONE AND $value != NULL;
+                ").await?;
         }
+
+        // Get the number of the last migration
+        let last_migration_num = num[0].parse::<i64>().unwrap();
+
+
+        // Read the migrations directory
+        //let dir = std::fs::read_dir("./sql");
+
+
+        /*
+        // Iterate through the migrations
+        for entry in dir {
+            if Ok(entry) = entry {
+                let Some(file_name) = entry.file_name.to_string() {
+                    if migration_file_regex.is_match(filename){
+                        if let Some(captures) = migration_file_regex.captures(file_name) {
+                            if let Some(number) = captures.name("number") {
+                                if let Some(name) = captures.name("name") {
+                                    if let (Ok(parsed_number), Some(parsed_name)) = (number.as_str().parse::<i64>(), name.as_str()) {
+                                        println!(
+                                            "Number: {}, Name: {}",
+                                            parsed_number, parsed_name
+                                        );
+                                    }                
+                                }
+                            }   
+                        }
+                    }
+                }
+            }
+        }
+        */
+
+
 
         
         // TODO: Parse the table_exists to check if the table exists
@@ -178,52 +166,29 @@ impl MigrationManager {
 #[tokio::main]
 async fn main() -> surrealdb::Result<()> {
 
-    // Log the start of the migration
-    logging::info("Starting the migration");
+    // Initialize the logger
+    log::info!("Initializing the logger...");
+    env_logger::init();
 
-    // TODO: Parse the CLI arguments with clap
-
-    // Set the prefixes
-    let prefixes: Vec<String> = vec![
-        "migrations::main".to_string(),
-        "migrations::migration_manager".to_string()
-    ];
-
-    // Initialize the loggers
-    let loggers = InitLoggers::new(prefixes).build();
-
-    let main_logger = &loggers[0];
-    let migration_manager_logger = &loggers[1];
-
-    main_logger.info("Initialized the loggers");
-    main_logger.debug("Initialized the loggers");
-    main_logger.warn("Initialized the loggers");
-    main_logger.error("Initialized the loggers");
-    main_logger.fatal("Initialized the loggers");
-
-    migration_manager_logger.info("Initialized the loggers");
-    migration_manager_logger.debug("Initialized the loggers");
-    migration_manager_logger.warn("Initialized the loggers");
-    migration_manager_logger.error("Initialized the loggers");
-    migration_manager_logger.fatal("Initialized the loggers");
-    
-
-
-
+    // Parse command line arguments
+    log::info!("Parsing CLI args...");
+    let args = Cli::parse();
 
     // Create a new MigrationManager
+    log::info!("Creating new MigrationManager...");
     let mut manager = MigrationManager::new(
         // Connection URL
-        "localhost:4321".to_string(),
+        args.connection_url,
         // Username
-        "driver".to_string(),
+        args.username,
         // Password
-        "M0d3lDr1v3r".to_string(),
+        args.password,
         // Namespace
         "ModelExecutorRuntimeNS".to_string(),
         // Database
         "ModelExecutorRuntimeDB".to_string(),
     )?;
+
 
     // Connect to the database
     manager.connect().await?;
