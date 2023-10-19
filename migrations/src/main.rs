@@ -114,11 +114,8 @@ impl MigrationManager {
         // Get the number of the last migration
         let last_migration_num = num[0].parse::<i64>().unwrap();
 
-
         // Read the migrations directory
-        //let dir = std::fs::read_dir("./sql");
-
-
+        let dir = std::fs::read_dir("./sql");
         /*
         // Iterate through the migrations
         for entry in dir {
