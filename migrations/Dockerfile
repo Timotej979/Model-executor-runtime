@@ -9,6 +9,7 @@ RUN cargo install cargo-chef
 # Set the working directory inside the container
 WORKDIR /usr/src/migrations
 
+
 # ========== PLANNER ==========
 FROM chef AS planner
 
