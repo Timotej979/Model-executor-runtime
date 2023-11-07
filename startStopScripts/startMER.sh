@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd ..
+
 # This script sets up the following:
 # 1. Sets up the environment variables for the services
 
@@ -29,8 +31,12 @@ cp -r sql target/release
 
 # Run the release version of migrations rust binary
 cd target/release
-./migrations
+./migrations # 
 
 # Run the release version of the driver rust binary
-#cd ../driver/target/release
+#cd ..
+#cd ..
+#cd ../driver
+#cargo build --release
+#cd target/release
 #./driver

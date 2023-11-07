@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd ..
+
 # This script stops the following:
 # 1. Stops the dockerized version of SurrealDB
 
