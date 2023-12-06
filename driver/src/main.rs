@@ -33,7 +33,8 @@ struct Cli {
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-fn main() {
+#[tokio::main]
+async fn main() {
 
     // Initialize the logger
     log::info!("Initializing the logger...");
@@ -50,6 +51,7 @@ fn main() {
     log::info!("    - allow_model_server_runtime_changes: {}", args.allow_model_server_runtime_changes);
 
 
+    log::info!("Initializing the DAL...");
     // Create the DALArgs instance
     let dal_args = dal::DALArgs {
         connection_url: args.connection_url,
@@ -61,13 +63,20 @@ fn main() {
     // If there is a need for more drivers, implement the driver and make the variable friver_type CLI parsed
     let driver_type = "surreal".to_string();
 
-    let mut dal_instance: dal::DAL<T> = match dal::DAL::create(&driver_type, dal_args) {
+    let mut dal_instance = match dal::DAL::create(&driver_type, dal_args) {
         Ok(instance) => instance,
         Err(error) => {
             log::error!("Failed to create the DAL instance: {}", error);
             std::process::exit(1);
         }
     };
+
+    log::info!("Connecting to the DAL...");
+    // Connect to the DAL
+    let _ = dal_instance.connect().await.expect("Failed to connect to the DAL");
+
+    // Disconnect from the DAL
+    let _ = dal_instance.disconnect().await.expect("Failed to disconnect from the DAL");
 
 
 

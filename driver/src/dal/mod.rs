@@ -12,7 +12,8 @@ pub struct DALArgs {
 // Create the DatabaseDriver trait, should be implemented by all DAL drivers
 #[async_trait]
 pub trait DatabaseDriver {
-    fn new(dal_args: DALArgs) -> Self;
+
+    fn new(dal_args: DALArgs) -> Self where Self: Sized;
 
     async fn connect(&mut self) -> Result<(), String>;
     async fn disconnect(&mut self) -> Result<(), String>;
@@ -23,14 +24,14 @@ pub trait DatabaseDriver {
 pub mod surreal;
 
 // DAL struct
-pub struct DAL<T: DatabaseDriver> {
-    driver: T,
+pub struct DAL {
+    driver: Box<dyn DatabaseDriver>,
 }
 
-impl<T: DatabaseDriver> DAL<T> {
+impl DAL {
     pub fn create(driver_type: &str, dal_args: DALArgs) -> Result<Self, String> {
-        let driver: T = match driver_type {
-            "surreal" => surreal::SurrealDriver::new(dal_args),
+        let driver: Box<dyn DatabaseDriver> = match driver_type {
+            "surreal" => Box::new(surreal::SurrealDriver::new(dal_args)),
             // Add other DAL drivers here, when implemented
             _ => {
                 log::error!("Unknown DAL driver type: {}", driver_type);
