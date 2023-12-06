@@ -1,5 +1,4 @@
 // dal/mod.rs
-
 use std::result::Result;
 use async_trait::async_trait;
 
@@ -13,6 +12,8 @@ pub struct DALArgs {
 // Create the DatabaseDriver trait, should be implemented by all DAL drivers
 #[async_trait]
 pub trait DatabaseDriver {
+    fn new(dal_args: DALArgs) -> Self;
+
     async fn connect(&mut self) -> Result<(), String>;
     async fn disconnect(&mut self) -> Result<(), String>;
     // Add other DAL methods here
@@ -29,8 +30,8 @@ pub struct DAL<T: DatabaseDriver> {
 impl<T: DatabaseDriver> DAL<T> {
     pub fn create(driver_type: &str, dal_args: DALArgs) -> Result<Self, String> {
         let driver: T = match driver_type {
-            "surreal" => surreal::SurrealDriver::new(dal_args).into(),
-            // Add other DAL drivers here
+            "surreal" => surreal::SurrealDriver::new(dal_args),
+            // Add other DAL drivers here, when implemented
             _ => {
                 log::error!("Unknown DAL driver type: {}", driver_type);
                 return Err("Unknown DAL driver type: ".to_string() + driver_type);

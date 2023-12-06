@@ -9,14 +9,6 @@ use clap::Parser;
 mod repl;
 mod dal;
 
-///////////////////////////////////////////////////////////////////////////////////////
-// Create a struct to pass the arguments to DAL
-pub struct DALArgs {
-    connection_url: String,
-    username: String,
-    password: String,
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Parse the main CLI args using the clap crate with the Derive API
@@ -59,7 +51,7 @@ fn main() {
 
 
     // Create the DALArgs instance
-    let dal_args = DALArgs {
+    let dal_args = dal::DALArgs {
         connection_url: args.connection_url,
         username: args.username,
         password: args.password,
@@ -69,7 +61,7 @@ fn main() {
     // If there is a need for more drivers, implement the driver and make the variable friver_type CLI parsed
     let driver_type = "surreal".to_string();
 
-    let mut dal_instance = match dal::DAL::create(driver_type, dal_args) {
+    let mut dal_instance: dal::DAL<T> = match dal::DAL::create(&driver_type, dal_args) {
         Ok(instance) => instance,
         Err(error) => {
             log::error!("Failed to create the DAL instance: {}", error);

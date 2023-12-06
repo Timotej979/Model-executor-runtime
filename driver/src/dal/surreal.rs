@@ -1,4 +1,4 @@
-// General imports
+// dal/surreal.rs
 use super::{DatabaseDriver, DALArgs};
 use std::result::Result;
 use async_trait::async_trait;
@@ -18,9 +18,10 @@ pub struct SurrealDriver {
     password: String,
     namespace: String,
     database: String,
-    db_conn: Lazy::new(Surreal::init),
+    db_conn: Lazy<Surreal<Client>>,
 }
 
+#[async_trait]
 impl DatabaseDriver for SurrealDriver {
 
     ////////////////////////////////////////////////////
@@ -34,6 +35,7 @@ impl DatabaseDriver for SurrealDriver {
             password: dal_args.password,
             namespace: "ModelExecutorRuntimeNS".to_string(),
             database: "ModelExecutorRuntimeDB".to_string(),
+            db_conn: Lazy::new(Surreal::init),
         }
     }
 
@@ -48,10 +50,10 @@ impl DatabaseDriver for SurrealDriver {
         // Check if the connection URL includes localhost
         if self.connection_url.starts_with("localhost:") || self.connection_url.starts_with("127.0.0.1:") || self.connection_url.starts_with("0.0.0.0:") {
             // Use ws
-            let _ = &self.db_conn.connect::<Ws>(&self.connection_url).await?;
+            let _ = &self.db_conn.connect::<Ws>(&self.connection_url).await;
         } else {
             // Use wss
-            let _ = &self.db_conn.connect::<Wss>(&self.connection_url).await?;
+            let _ = &self.db_conn.connect::<Wss>(&self.connection_url).await;
         }
 
         // Sign in as user
@@ -59,10 +61,10 @@ impl DatabaseDriver for SurrealDriver {
             username: &self.username,
             password: &self.password,
         })
-        .await?;
+        .await;
 
         // Use the namespace and database
-        let _ = &self.db_conn.use_ns(&self.namespace).use_db(&self.database).await?;
+        let _ = &self.db_conn.use_ns(&self.namespace).use_db(&self.database).await;
 
         Ok(())
     }
@@ -70,7 +72,7 @@ impl DatabaseDriver for SurrealDriver {
     async fn disconnect(&mut self) -> Result<(), String> {
         log::info!("Disconnecting from the DB...");
         // Disconnect from the DB with invalidating the connection
-        let _ = &self.db_conn.invalidate().await?;
+        let _ = &self.db_conn.invalidate().await;
         Ok(())
     }
 
