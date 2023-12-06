@@ -4,7 +4,7 @@ use std::io::Write;
 // CLI arg parsing with clap
 use clap::{Command, Arg};
 
-///////////////////////////////////////////////////////////////////////////////////////
+
 // Parse REPL command args using the clap crate with the Builder API
 pub struct CliReplManager {
     stdin: std::io::Stdin,
@@ -55,7 +55,6 @@ impl CliReplManager {
             }
         }
 
-        // Return Ok
         Ok(())
     }
 
@@ -69,7 +68,6 @@ impl CliReplManager {
         let mut buffer = String::new();
         self.stdin.read_line(&mut buffer).map_err(|e| e.to_string())?;
     
-        // Return the input
         Ok(buffer)
     }
 
@@ -145,7 +143,7 @@ impl CliReplManager {
             )
             .subcommand(
                 // Driver toggle feedback learning for a model
-                Command::new("driver-toggle-feedback")
+                Command::new("driver-toggle-model-feedback")
                     .about("Toggle continuous feedback learning for a model")
                     .arg(
                         Arg::new("name")
@@ -221,8 +219,7 @@ impl CliReplManager {
             Some((name, _matches)) => unimplemented!("{name}\n"),
             None => unreachable!("Error: Subcommand required\n"),
         }
-    
-        // Return false
+
         Ok(false)
     }
 
