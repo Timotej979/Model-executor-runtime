@@ -20,7 +20,7 @@ use surrealdb::opt::auth::Root as surrealRoot;
 ///////////////////////////////////////////////////////////////////////////////////////
 // Parse CLI args using the clap crate with the Derive API
 #[derive(Parser)]
-#[command(name = "Model-executor-runtime-Migrations (MER-Migrations)")]
+#[command(name = "Model-Executor-Runtime-Migrations (MER-Migrations)")]
 #[command(author = "Timotej979 @ GitHub")]
 #[command(version = "1.0")]
 #[command(about = "Migrates the required DB schema for running the MER", long_about = None)]

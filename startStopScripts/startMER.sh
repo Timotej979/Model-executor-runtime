@@ -31,7 +31,7 @@ cp -r sql target/release
 
 # Run the release version of migrations rust binary
 cd target/release
-./migrations # 
+./mer-migrations
 
 # Run the release version of the driver rust binary
 #cd ..
@@ -39,4 +39,4 @@ cd target/release
 #cd ../driver
 #cargo build --release
 #cd target/release
-#./driver
+#./mer-driver

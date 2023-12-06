@@ -1,5 +1,5 @@
 [package]
-name = "Model-executor-runtime-migrations"
+name = "mer-migrations"
 version = "0.1.0"
 authors = ["Timotej979"]
 edition = "2021"
