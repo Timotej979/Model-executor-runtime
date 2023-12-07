@@ -9,7 +9,7 @@ DEFINE FIELD uid ON TABLE ModelAccess TYPE string ASSERT $value != NONE AND type
 DEFINE INDEX order ON TABLE ModelAccess COLUMNS uid UNIQUE;
 
 -- Define name and type
-DEFINE FIELD modelUid ON TABLE ModelAccess TYPE string ASSERT $value != NONE AND type::is::uuid($value);
+DEFINE FIELD requestUid ON TABLE ModelAccess TYPE string ASSERT $value != NONE AND type::is::uuid($value);
 DEFINE FIELD model ON TABLE ModelAccess TYPE string ASSERT $value != NONE AND $value != NULL;
 DEFINE FIELD startAccess ON TABLE ModelAccess TYPE datetime ASSERT $value != NONE AND $value != NULL;
 DEFINE FIELD stopAccess ON TABLE ModelAccess TYPE datetime ASSERT $value != NONE AND $value != NULL;

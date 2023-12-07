@@ -81,4 +81,17 @@ impl DatabaseDriver for SurrealDriver {
     ///// Management of the SurrealDriver queries /////
     ///////////////////////////////////////////////////
 
+    async fn get_available_models(&mut self) -> Result<Vec<String>, String> {
+        log::info!("Getting available models from the DB...");
+
+        // Get the available models
+        let available_models = &self.db_conn.query("").bind().await;
+        
+        
+        
+        Ok(available_models.to_vec())
+    }
+
+
+
 }
