@@ -2,22 +2,22 @@ BEGIN TRANSACTION;
 
 ----------------------------------------------------------------------------------------------------------
 -- Define dynamic connTypeParams table
-DEFINE TABLE connTypeParams SCHEMALESS;
+DEFINE TABLE ConnTypeParams SCHEMALESS;
 -- Define uid and order and make them unique
-DEFINE FIELD uid ON TABLE connTypeParams TYPE string ASSERT $value != NONE AND type::is::uuid($value);
-DEFINE INDEX order ON TABLE connTypeParams COLUMNS uid UNIQUE; 
-DEFINE FIELD createdAt ON TABLE connTypeParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
-DEFINE FIELD lastUpdated ON TABLE connTypeParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
+DEFINE FIELD uid ON TABLE ConnTypeParams TYPE string ASSERT $value != NONE AND $value != NULL;
+DEFINE INDEX order ON TABLE ConnTypeParams COLUMNS uid UNIQUE; 
+DEFINE FIELD createdAt ON TABLE ConnTypeParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
+DEFINE FIELD lastUpdated ON TABLE ConnTypeParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
 -----------------------------------------------------------------------------------------------------------
 
 -----------------------------------------------------------------------------------------------------------
 -- Define dynamic modelParams table
-DEFINE TABLE modelParams SCHEMALESS;
+DEFINE TABLE ModelParams SCHEMALESS;
 -- Define uid and order and make them unique
-DEFINE FIELD uid ON TABLE modelParams TYPE string ASSERT $value != NONE AND type::is::uuid($value);
-DEFINE INDEX order ON TABLE modelParams COLUMNS uid UNIQUE;
-DEFINE FIELD createdAt ON TABLE modelParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
-DEFINE FIELD lastUpdated ON TABLE modelParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
+DEFINE FIELD uid ON TABLE ModelParams TYPE string ASSERT $value != NONE AND $value != NULL;
+DEFINE INDEX order ON TABLE ModelParams COLUMNS uid UNIQUE;
+DEFINE FIELD createdAt ON TABLE ModelParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
+DEFINE FIELD lastUpdated ON TABLE ModelParams TYPE datetime ASSERT $value != NONE AND $value != NULL;
 -----------------------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------------------------
@@ -25,11 +25,11 @@ DEFINE FIELD lastUpdated ON TABLE modelParams TYPE datetime ASSERT $value != NON
 DEFINE TABLE AvailableModels SCHEMAFULL;
 
 -- Define uid and order and make the unique
-DEFINE FIELD uid ON TABLE AvailableModels TYPE string ASSERT $value != NONE AND type::is::uuid($value);
+DEFINE FIELD uid ON TABLE AvailableModels TYPE string ASSERT $value != NONE AND $value != NULL;
 DEFINE INDEX order ON TABLE AvailableModels COLUMNS uid UNIQUE;
 
 -- Define name and type
-DEFINE FIELD name ON TABLE AvailableModels TYPE string ASSERT $value != NONE AND $value != NULL;
+DEFINE FIELD name ON TABLE AvailableModels TYPE string ASSERT $value != NONE AND $value != NULL AND $value != NULL;
 DEFINE FIELD connType ON TABLE AvailableModels TYPE string ASSERT $value != NONE AND $value != NULL;
 
 -- Define createdAt
@@ -38,11 +38,11 @@ DEFINE FIELD lastUpdated ON TABLE AvailableModels TYPE datetime ASSERT $value !=
 
 -- Define dynamic connTypeParams table
 DEFINE FIELD connTypeParams ON TABLE AvailableModels TYPE array;  
-DEFINE FIELD connTypeParams.* ON TABLE AvailableModels TYPE record(connTypeParams);
+DEFINE FIELD connTypeParams.* ON TABLE AvailableModels TYPE record(ConnTypeParams);
 
 -- Define dynamic modelParams table
 DEFINE FIELD modelParams ON TABLE AvailableModels TYPE array;
-DEFINE FIELD modelParams.* ON TABLE AvailableModels TYPE record(modelParams);
+DEFINE FIELD modelParams.* ON TABLE AvailableModels TYPE record(ModelParams);
 --------------------------------------------------------------------------------------------------------------
 
 COMMIT TRANSACTION;
