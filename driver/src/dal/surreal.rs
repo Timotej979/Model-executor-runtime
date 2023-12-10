@@ -1,4 +1,4 @@
-// dal/surreal.rs
+// /src/dal/surreal.rs
 use super::{DatabaseDriver, DALArgs};
 use std::result::Result;
 use async_trait::async_trait;
@@ -85,11 +85,16 @@ impl DatabaseDriver for SurrealDriver {
         log::info!("Getting available models from the DB...");
 
         // Get the available models
-        let available_models = &self.db_conn.query("").bind().await;
+        let available_models = &self.db_conn.query("
+            SELECT * FROM AvailableModels;
+        ").await;
+
+        // Print the available models
+        log::info!("Available models: {:?}", available_models);
         
         
-        
-        Ok(available_models.to_vec())
+        // Return the available models
+        Ok(vec!["test".to_string()])
     }
 
 

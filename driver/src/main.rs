@@ -1,3 +1,4 @@
+// src/main.rs
 // Logging with env_logger
 use env_logger;
 use log;
@@ -74,6 +75,10 @@ async fn main() {
     log::info!("Connecting to the DAL...");
     // Connect to the DAL
     let _ = dal_instance.connect().await.expect("Failed to connect to the DAL");
+
+    // Get the available models
+    let available_models = dal_instance.get_available_models().await.expect("Failed to get available models");
+    log::info!("Available models: {:?}", available_models);
 
     // Disconnect from the DAL
     let _ = dal_instance.disconnect().await.expect("Failed to disconnect from the DAL");
