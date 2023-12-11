@@ -73,7 +73,7 @@ impl CliReplManager {
     }
 
     // Parses the custom CLI arguments
-    fn command_parser() -> Command {
+    fn command_parser(&self) -> Command {
         
         // strip out usage
         const PARSER_TEMPLATE: &str = r"
@@ -98,7 +98,7 @@ impl CliReplManager {
             {all-args}{after-help}\
         ";
 
-        Command::new("driver-repl")
+        let mut app = Command::new("driver-repl")
             .multicall(true)
             .arg_required_else_help(true)
             .subcommand_required(true)
@@ -107,14 +107,38 @@ impl CliReplManager {
             
             // MER-Driver commands
             .subcommand(
-                // MER-Driver version
-                Command::new("driver-version")
+                // driver-version
+                Command::new("version")
                     .about("Get the version of the MER-river")
                     .help_template(APPLET_TEMPLATE),
             )
             .subcommand(
+                // list models
+                Command::new("model-list")
+                    .alias("list-models")
+                    .alias("model-ls")
+                    .alias("ls-models")
+                    .alias("ls")
+                    .about("List all available models")
+                    .help_template(APPLET_TEMPLATE),
+            )
+            .subcommand(
+                // model info
+                Command::new("model-info")
+                    .about("Get info about a model")
+                    .arg(
+                        Arg::new("name")
+                            .help("The name of the model to get info about")
+                            .required(true)
+                            .index(1),
+                    )
+                    .help_template(APPLET_TEMPLATE), 
+            )
+            .subcommand(
                 // MER-Driver ping model
-                Command::new("ping-model")
+                Command::new("model-ping")
+                    .alias("ping-model")
+                    .alias("ping")
                     .about("Ping the remote model")
                     .arg(
                         Arg::new("name")
@@ -126,7 +150,9 @@ impl CliReplManager {
             )
             .subcommand(
                 // MER-Driver execute model
-                Command::new("driver-execute")
+                Command::new("model-execute")
+                    .alias("execute-model")
+                    .alias("execute")
                     .about("Execute the model")
                     .arg(
                         Arg::new("name")
@@ -144,7 +170,9 @@ impl CliReplManager {
             )
             .subcommand(
                 // Driver toggle feedback learning for a model
-                Command::new("driver-toggle-model-feedback")
+                Command::new("model-continuous-feedback")
+                    .alias("continuous-feedback")
+                    .alias("feedback")
                     .about("Toggle continuous feedback learning for a model")
                     .arg(
                         Arg::new("name")
@@ -152,14 +180,48 @@ impl CliReplManager {
                             .required(true)
                             .index(1),
                     )
+                    .arg(
+                        Arg::new("state")
+                            .help("Toggle continuous feedback learning for a model")
+                            .required(true)
+                            .index(1),
+                    )
                     .help_template(APPLET_TEMPLATE),
             )
             .subcommand(
-                Command::new("driver-exit")
-                    .alias("driver-quit")
+                Command::new("exit")
+                    .alias("quit")
                     .about("Quit the MER-repl")
                     .help_template(APPLET_TEMPLATE),
-            )
+            );
+
+
+            // Optional control commands for editing the existing models
+            if self.allow_model_server_runtime_changes {
+                app = app.subcommand(
+                    // Modify model entries
+                    Command::new("model-modify")
+                        .alias("modify")
+                        .about("Modify an existing model entry")
+                        .help_template(APPLET_TEMPLATE)
+                );
+                
+                app = app.subcommand(
+                    Command::new("model-create")
+                        .alias("create")
+                        .about("Create new model entry")
+                        .help_template(APPLET_TEMPLATE),
+                );
+
+                app = app.subcommand(
+                    Command::new("model-delete")
+                        .alias("delete")
+                        .about("Delete an existing model entry")
+                        .help_template(APPLET_TEMPLATE)
+                );
+            }
+
+        return app;
     }
 
     // Responds to the CLI command
@@ -168,19 +230,19 @@ impl CliReplManager {
         let args = shlex::split(&self.line).ok_or("Error: Invalid quoting")?;
     
         // Parse the arguments
-        let matches = CliReplManager::command_parser()
+        let matches = CliReplManager::command_parser(&self)
             .try_get_matches_from(args)
             .map_err(|e| e.to_string())?;
 
 
         // Match the subcommand
         match matches.subcommand() {
-            Some(("driver-version", _matches)) => {
+            Some(("version", _matches)) => {
                 write!(self.stdout, "MER-Driver version: 0.1.0\n").map_err(|e| e.to_string())?;
                 self.stdout.flush().map_err(|e| e.to_string())?;
             }
 
-            Some(("driver-ping", _matches)) => {
+            Some(("model-ping", _matches)) => {
                 if let Some(name) = _matches.get_one::<String>("name") {
                     write!(self.stdout, "Checking if model {} is available...\n", name).map_err(|e| e.to_string())?;
                     self.stdout.flush().map_err(|e| e.to_string())?;
@@ -190,7 +252,7 @@ impl CliReplManager {
                 }
             }
 
-            Some(("driver-execute", _matches)) => {
+            Some(("model-execute", _matches)) => {
                 if let (Some(name), Some(input)) = (_matches.get_one::<String>("name"), _matches.get_one::<String>("input")) {
                     write!(self.stdout, "Executing model {} with input {}...\n", name, input).map_err(|e| e.to_string())?;
                     self.stdout.flush().map_err(|e| e.to_string())?;
@@ -200,7 +262,7 @@ impl CliReplManager {
                 }
             }
 
-            Some(("driver-toggle-feedback", _matches)) => {
+            Some(("model-toggle-feedback", _matches)) => {
                 if let Some(name) = _matches.get_one::<String>("name") {
                     write!(self.stdout, "Toggling feedback learning for model {}...\n", name).map_err(|e| e.to_string())?;
                     self.stdout.flush().map_err(|e| e.to_string())?;
@@ -210,7 +272,7 @@ impl CliReplManager {
                 }
             }
 
-            Some(("driver-exit", _matches)) => {
+            Some(("exit", _matches)) => {
                 write!(self.stdout, "Exiting Model-Executor Runtime-CLI ...\n").map_err(|e| e.to_string())?;
                 self.stdout.flush().map_err(|e| e.to_string())?;
                 // Return true

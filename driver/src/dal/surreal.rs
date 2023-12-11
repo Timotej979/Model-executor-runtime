@@ -104,7 +104,7 @@ impl DatabaseDriver for SurrealDriver {
 
         // Deserialize the available model UIDs response
         // Deserialize the JSON response into the DBResponse struct
-        let result = serde_json::from_str(available_model_uids);
+        //let result = serde_json::from_str(available_model_uids);
 
 
         // Parse the available model UIDs
