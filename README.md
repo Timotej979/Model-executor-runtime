@@ -74,6 +74,8 @@ These are the relevant folders within the project:
     - Docker-compose file for the SurrealDB
 
 
+![MER-architecture](./docs/assets/MER-architecture.png)
+
 
 ## Database schema
 
