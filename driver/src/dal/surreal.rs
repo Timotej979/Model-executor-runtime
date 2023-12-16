@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use once_cell::sync::Lazy;
 use surrealdb::Surreal;
 use surrealdb::sql::serde::serialize;
-use surrealdb::sql::{Value, Object};
+use surrealdb::opt::QueryResult;
 use surrealdb::engine::remote::ws::{Client, Ws, Wss};
 use surrealdb::opt::auth::Root as surrealRoot;
 
@@ -138,24 +138,32 @@ impl DatabaseDriver for SurrealDriver {
             // TODO: Bellow is not working, need to fix it
 
             // Get the available model connection params
-            let available_model_connection_params: Result<Vec<(String, String)>, _> = self.db_conn
+            let available_model_connection_params: Result<HashMap<String, Vec<String>>, _> = self.db_conn
                 .query("SELECT * FROM ConnTypeParams WHERE uid = $uidString;")
                 .bind(("uidString", available_model_uuid.clone()))
                 .await
-                .map(|mut rows| {
-                    rows.take(0).map_or_else(
-                        |_| Vec::new(), // Return an empty Vec if there's no row
-                        |row: Object| {
-                            // Convert the row into a Vec<(String, String)>
-                            row.columns()
-                                .iter()
-                                .map(|(key, value)| (key.to_string(), value.to_string()))
-                                .collect()
+                .and_then(|mut rows| {
+                    let mut result = HashMap::new();
+
+                    // Get column names from metadata
+                    let columns = rows.columns();
+                    let column_names: Vec<&str> = columns.iter().map(|col| col.name()).collect();
+
+                    while let Some(row) = rows.next()? {
+                        for (index, &column_name) in column_names.iter().enumerate() {
+                            // Use unwrap_or_default() to handle potential errors during extraction
+                            let value = row.get::<&str, Vec<String>>(column_name).unwrap_or_default();
+                            result.insert(format!("column{}", index), value);
                         }
-                    )
+                    }
+
+                    Ok(result)
                 });
 
+            log::debug!("Available model connection params: {:?}", available_model_connection_params);
 
+
+            /*
             if available_model_connection_params.is_err() {
                 log::error!("Failed to get available models from the DB");
                 return Err("Failed to get available models from the DB".to_string());
@@ -185,6 +193,7 @@ impl DatabaseDriver for SurrealDriver {
 
             // Add the available model to the available models vector
             //available_models.push(available_model.to_string());
+            */
         }
         
         
