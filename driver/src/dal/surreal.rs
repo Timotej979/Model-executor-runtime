@@ -6,11 +6,9 @@ use std::collections::HashMap;
 // SurrealDB
 use once_cell::sync::Lazy;
 use surrealdb::Surreal;
-use surrealdb::sql::serde::serialize;
-use surrealdb::opt::QueryResult;
+use surrealdb::sql::Value;
 use surrealdb::engine::remote::ws::{Client, Ws, Wss};
 use surrealdb::opt::auth::Root as surrealRoot;
-
 
 
 // Create the SurrealDriver struct
@@ -83,26 +81,25 @@ impl DatabaseDriver for SurrealDriver {
     ///// Management of the SurrealDriver queries /////
     ///////////////////////////////////////////////////
 
-    async fn get_available_models(&mut self) -> Result<Vec<String>, String> {
+    async fn get_available_models(&mut self) -> Result<Vec<Vec<HashMap<String, String>>>, String> {
         log::info!("Getting available models from the DB...");
 
-        //Create the available models vector
-        let mut available_models: Vec<String> = Vec::new();
+        // Create the available models HashMap to return
+        let mut available_models: Vec<Vec<HashMap<String, String>>> = Vec::new();
+
 
         // Get the available model UUIDs
-        let ret: Result<Vec<String>, _> = self.db_conn
+        let result: Result<Vec<String>, _> = self.db_conn
             .query("SELECT uid FROM AvailableModels")
             .await
             .map(|mut v| v.take("uid").unwrap());
 
-        // Check if the query was successful
-        if ret.is_err() {
-            log::error!("Failed to get available models from the DB");
-            return Err("Failed to get available models from the DB".to_string());
+        if result.is_err() {
+            log::error!("Failed to get available model UUIDs from the DB");
+            return Err("Failed to get available model UUIDs from the DB".to_string());
         }
-
         // Get the available model UUIDs and check if empty
-        let available_model_uuids: Vec<String> = ret.unwrap();
+        let available_model_uuids: Vec<String> = result.unwrap();
         if available_model_uuids.is_empty() {
             log::error!("No available models found in the DB");
             return Err("No available models found in the DB".to_string());
@@ -111,94 +108,103 @@ impl DatabaseDriver for SurrealDriver {
         
         // Loop over the available model UUIDs to get their properties
         for available_model_uuid in available_model_uuids {
+            log::debug!("Processing model with UUID: {:?}", available_model_uuid);
 
-            // Print the UID of the available model
-            log::debug!("Available model UID: {:?}", available_model_uuid);
 
             // Get the available models staitic fields
-            let mut ret: Result<(Vec<String>, Vec<String>, Vec<String>, Vec<String>), _> = self.db_conn
+            let result: Result<Value, _> = self.db_conn
                 .query("SELECT name, connType, createdAt, lastUpdated FROM AvailableModels WHERE uid = $uidString;")
                 .bind(("uidString", available_model_uuid.clone()))
                 .await
-                .map(|mut v| (v.take("name").unwrap(), v.take("connType").unwrap(), v.take("createdAt").unwrap(), v.take("lastUpdated").unwrap()));
+                .map(|mut v| v.take(0).unwrap());
 
-            if ret.is_err() {
-                log::error!("Failed to get available models from the DB");
-                return Err("Failed to get available models from the DB".to_string());
+            if result.is_err() {
+                log::error!("Failed to get static fields for available models from the DB");
+                return Err("Failed to get static fields for available models from the DB".to_string());
             }
+            // Parse the available model static fields into a HashMap
+            let result_json = result.unwrap().into_json();
+            let mut static_fields = HashMap::new();
+            if let Some(first_element) = result_json.as_array().and_then(|arr| arr.get(0)) {
+                // Convert JsonValues to Strings or other appropriate types if needed
+                static_fields = first_element
+                    .as_object()
+                    .expect("Expected object in the array")
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.as_str().unwrap_or_default().to_string()))
+                    .collect();
+                log::debug!("    - Static fields processed succesfully");
+            }
+            // Add the available model UUID to the available model static fields HashMap
+            static_fields.insert("uid".to_string(), available_model_uuid.clone());
 
-            let (name, conn_type, created_at, last_updated) = ret.unwrap();
 
-            log::debug!("\nAvailable model name: {:?}\n\
-                         Available model connType: {:?}\n\
-                         Available model createdAt: {:?}\n\
-                         Available model lastUpdated: {:?}", name, conn_type, created_at, last_updated);
-
-
-            // TODO: Bellow is not working, need to fix it
 
             // Get the available model connection params
-            let available_model_connection_params: Result<HashMap<String, Vec<String>>, _> = self.db_conn
+            let result: Result<Value, _> = self.db_conn
                 .query("SELECT * FROM ConnTypeParams WHERE uid = $uidString;")
                 .bind(("uidString", available_model_uuid.clone()))
                 .await
-                .and_then(|mut rows| {
-                    let mut result = HashMap::new();
+                .map(|mut v| v.take(0).unwrap());
 
-                    // Get column names from metadata
-                    let columns = rows.columns();
-                    let column_names: Vec<&str> = columns.iter().map(|col| col.name()).collect();
-
-                    while let Some(row) = rows.next()? {
-                        for (index, &column_name) in column_names.iter().enumerate() {
-                            // Use unwrap_or_default() to handle potential errors during extraction
-                            let value = row.get::<&str, Vec<String>>(column_name).unwrap_or_default();
-                            result.insert(format!("column{}", index), value);
-                        }
-                    }
-
-                    Ok(result)
-                });
-
-            log::debug!("Available model connection params: {:?}", available_model_connection_params);
-
-
-            /*
-            if available_model_connection_params.is_err() {
-                log::error!("Failed to get available models from the DB");
-                return Err("Failed to get available models from the DB".to_string());
+            if result.is_err() {
+                log::error!("Failed to get connection params for available models from the DB");
+                return Err("Failed to get connection params for available models from the DB".to_string());
             }
-
-            let available_model_connection_params: Vec<(String, String)> = available_model_connection_params.unwrap();
-
-            log::debug!("Available model connection params: {:?}", available_model_connection_params);
+            // Parse the available model connection params into a HashMap
+            let result_json = result.unwrap().into_json();
+            let mut connection_params = HashMap::new();
+            if let Some(first_element) = result_json.as_array().and_then(|arr| arr.get(0)) {
+                // Convert JsonValues to Strings or other appropriate types if needed
+                connection_params = first_element
+                    .as_object()
+                    .expect("Expected object in the array")
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.as_str().unwrap_or_default().to_string()))
+                    .collect();
+                log::debug!("    - Connection params processed succesfully");
+            }
             
 
-            let mut available_model_model_params: surrealdb::Response = self.db_conn.query("
-                SELECT * FROM ModelParams WHERE uid = $uidString;")
+            // Get the available model model params
+            let result: Result<Value, _> = self.db_conn
+                .query("SELECT * FROM ModelParams WHERE uid = $uidString;")
                 .bind(("uidString", available_model_uuid.clone()))
                 .await
-                .map_err(|err| err.to_string())?;
+                .map(|mut v| v.take(0).unwrap());
 
-            log::debug!("Available model model params: {:?}", available_model_model_params);
+            if result.is_err() {
+                log::error!("Failed to get model params for available models from the DB");
+                return Err("Failed to get model params for available models from the DB".to_string());
+            }
 
-            let model_params: Vec<Value> = available_model_model_params.take(0).unwrap();
+            // Parse the available model model params into a HashMap
+            let result_json = result.unwrap().into_json();
+            let mut model_params = HashMap::new();
+            if let Some(first_element) = result_json.as_array().and_then(|arr| arr.get(0)) {
+                // Convert JsonValues to Strings or other appropriate types if needed
+                model_params = first_element
+                    .as_object()
+                    .expect("Expected object in the array")
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.as_str().unwrap_or_default().to_string()))
+                    .collect();
+                log::debug!("    - Model params for uid processed succesfully");
+            }
+
             
+            // Insert the available model static fields, connection params and model params into a vector
+            let mut available_model = Vec::new();
+            available_model.push(static_fields);
+            available_model.push(connection_params);
+            available_model.push(model_params);
 
-            // Create a vector of available model static fields with nested vectors of available model connection params and available model model params
-            //let available_model: Vec<Vec<String>> = vec![available_model_static_fields, available_model_connection_params, available_model_model_params];
-
-            // Print the available model
-            //log::info!("Available model: {:?}", available_model);
-
-            // Add the available model to the available models vector
-            //available_models.push(available_model.to_string());
-            */
+            // Insert the available model into the available models vector
+            available_models.push(available_model);
         }
         
-        
         // Return the available models
-        Ok(vec!["test".to_string()])
+        Ok(available_models)
     }
 
 

@@ -78,7 +78,18 @@ async fn main() {
 
     // Get the available models
     let available_models = dal_instance.get_available_models().await.expect("Failed to get available models");
-    log::info!("Available models: {:?}", available_models);
+    // Print the available models
+    for model in available_models {
+        log::info!("Model instance of {}:", model[0].get("name").expect("Failed to get model_type"));
+        // Go over all 3 HashMaps in the Vec
+        for model_instance in model {
+            for (key, value) in model_instance {
+                log::info!("    - {}: {}", key, value);
+            }
+        }
+        log::info!("-------------------------");
+    }
+
 
     // Disconnect from the DAL
     let _ = dal_instance.disconnect().await.expect("Failed to disconnect from the DAL");

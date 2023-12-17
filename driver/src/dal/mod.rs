@@ -1,7 +1,7 @@
 // src/dal/mod.rs
-// Import the DatabaseDriver trait
 use std::result::Result;
 use async_trait::async_trait;
+use std::collections::HashMap;
 
 // Define DALArgs struct
 pub struct DALArgs {
@@ -22,7 +22,7 @@ pub trait DatabaseDriver {
     async fn disconnect(&mut self) -> Result<(), String>;
     
     // DatabaseDriver querry methods
-    async fn get_available_models(&mut self) -> Result<Vec<String>, String>;
+    async fn get_available_models(&mut self) -> Result<Vec<Vec<HashMap<String, String>>>, String>;
 }
 
 // Re-export driver modules
@@ -55,7 +55,7 @@ impl DAL {
         self.driver.disconnect().await
     }
 
-    pub async fn get_available_models(&mut self) -> Result<Vec<String>, String> {
+    pub async fn get_available_models(&mut self) -> Result<Vec<Vec<HashMap<String, String>>>, String> {
         self.driver.get_available_models().await
     }
 
