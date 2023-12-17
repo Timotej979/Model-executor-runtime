@@ -121,16 +121,48 @@ mod tests {
         let mut dal = DAL::create("surreal", dal_args).unwrap();
 
         // Connect to the DAL
-        let _ = dal.connect().await;
+        let _ = dal.connect().await.expect("Failed to connect to the DAL");
 
-        // Get available models
-        let available_models = dal.get_available_models().await;
-        assert!(available_models.is_ok());
-        
+        // Get the available models
+        let available_models = dal.get_available_models().await.expect("Failed to get available models");
+
         // Print the available models
-        println!("test dal::tests::test_dal_get_available_models:\n    Available models: {:?}", available_models.unwrap());
+        for model in &available_models {
+            println!("Model instance of {}:", model[0].get("name").expect("Failed to get model_type"));
+            // Go over all 3 HashMaps in the Vec
+            for model_instance in model {
+                for (key, value) in model_instance {
+                    println!("    - {}: {}", key, value);
+                }
+            }
+            println!("-------------------------");
+        }
+
+        // Check if not empty
+        assert!(available_models.len() > 0);
+        assert!(available_models[0].len() > 0);
+
+        // Check if static fields are present
+        assert!(available_models[0][0].len() > 0);
+        assert!(available_models[0][0].contains_key("uid"));
+        assert!(available_models[0][0].contains_key("name"));
+        assert!(available_models[0][0].contains_key("connType"));
+        assert!(available_models[0][0].contains_key("createdAt"));
+        assert!(available_models[0][0].contains_key("lastUpdated"));
+
+        // Check if connection_params are present
+        assert!(available_models[0][1].len() > 0);
+        assert!(available_models[0][1].contains_key("uid"));
+        assert!(available_models[0][1].contains_key("createdAt"));
+        assert!(available_models[0][1].contains_key("lastUpdated"));
+
+        // Check if model_params are present
+        assert!(available_models[0][2].len() > 0);
+        assert!(available_models[0][2].contains_key("uid"));
+        assert!(available_models[0][2].contains_key("createdAt"));
+        assert!(available_models[0][2].contains_key("lastUpdated"));
 
         // Disconnect from the DAL
-        let _ = dal.disconnect().await;
+        let _ = dal.disconnect().await.expect("Failed to disconnect from the DAL");
     }
 }

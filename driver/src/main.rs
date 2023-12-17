@@ -64,36 +64,13 @@ async fn main() {
     // If there is a need for more drivers, implement the driver and make the variable friver_type CLI parsed
     let driver_type = "surreal".to_string();
 
-    let mut dal_instance = match dal::DAL::create(&driver_type, dal_args) {
+    let _dal_instance = match dal::DAL::create(&driver_type, dal_args) {
         Ok(instance) => instance,
         Err(error) => {
             log::error!("Failed to create the DAL instance: {}", error);
             std::process::exit(1);
         }
     };
-
-    log::info!("Connecting to the DAL...");
-    // Connect to the DAL
-    let _ = dal_instance.connect().await.expect("Failed to connect to the DAL");
-
-    // Get the available models
-    let available_models = dal_instance.get_available_models().await.expect("Failed to get available models");
-    // Print the available models
-    for model in available_models {
-        log::info!("Model instance of {}:", model[0].get("name").expect("Failed to get model_type"));
-        // Go over all 3 HashMaps in the Vec
-        for model_instance in model {
-            for (key, value) in model_instance {
-                log::info!("    - {}: {}", key, value);
-            }
-        }
-        log::info!("-------------------------");
-    }
-
-
-    // Disconnect from the DAL
-    let _ = dal_instance.disconnect().await.expect("Failed to disconnect from the DAL");
-
 
 
 
