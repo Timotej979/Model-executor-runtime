@@ -29,13 +29,13 @@ The driver program first initializes the following modules:
 
 - **DAL module**
     - Creates the Data Access layer through which we can access the data in the database in a consise and structured manner, used for fetching the available local/remote models at the begginging of the program, interaction with the database on model access and updating model weights. The DAL module is comprised of:
-        - `lib.rs` - Abstarction layer that handels different database drivers and returns the before specified type of the driver
+        - `mod.rs` - Abstarction layer that handels different database drivers and returns the before specified type of the driver
         - `surreal.rs` - Driver for the Surreal database (TODO)
         - `postgres.rs` - Driver for the Postgres database (TODO)
 
 - **MEAL module**
     - Creates a Model Execution abstraction Layer through which we can execute either local/remote models. The MEAL module is comprised of:
-        - `lib.rs` - Abstraction layer for model execution
+        - `mod.rs` - Abstraction layer for model execution
         - `local.rs` - Driver for the local execution of the models using the standard pipes for communication
         - `ssh.rs` - Driver for the remote execution of models via SSH protocol for connection and standard pipes for communication
 
