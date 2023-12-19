@@ -1,4 +1,7 @@
 // src/main.rs
+// Standard liraries
+use std::collections::HashMap;
+
 // Logging with env_logger
 use env_logger;
 use log;
@@ -7,8 +10,9 @@ use log;
 use clap::Parser;
 
 // Custom modules
-mod repl;
 mod dal;
+mod meal;
+mod repl;
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -49,7 +53,7 @@ async fn main() {
     log::info!("Parsed CLI args:");
     log::info!("    - connection_url: {}", args.connection_url);
     log::info!("    - username: {}", args.username);
-    log::info!("    - allow_model_server_runtime_changes: {}", args.allow_model_server_runtime_changes);
+    log::info!("    - allow_model_server_runtime_changes: {:#?}", args.allow_model_server_runtime_changes);
 
 
     log::info!("Initializing the DAL...");
@@ -64,15 +68,80 @@ async fn main() {
     // If there is a need for more drivers, implement the driver and make the variable friver_type CLI parsed
     let driver_type = "surreal".to_string();
 
-    let _dal_instance = match dal::DAL::create(&driver_type, dal_args) {
+    let mut dal_instance = match dal::DAL::create(&driver_type, dal_args) {
         Ok(instance) => instance,
         Err(error) => {
-            log::error!("Failed to create the DAL instance: {}", error);
+            log::error!("Failed to create the DAL instance: {:#?}", error);
             std::process::exit(1);
         }
     };
 
+    // Connect to the DAL
+    let _ = match dal_instance.connect().await {
+        Ok(_) => (),
+        Err(error) => {
+            log::error!("Failed to connect to the DAL: {:#?}", error);
+            std::process::exit(1);
+        }
+    };
 
+    // Get the available models
+    let available_models = match dal_instance.get_available_models().await {
+        Ok(models) => models,
+        Err(error) => {
+            log::error!("Failed to get available models: {:#?}", error);
+            std::process::exit(1);
+        }
+    };
+
+    // Create the MEAL instances for every available model
+    let mut meal_instances: HashMap<String, Vec<meal::MEAL>> = HashMap::new();
+
+    for model in available_models {
+        // Get the model name
+        let model_name = model[0].get("name").cloned().unwrap_or_default();
+
+        // Get the model connectionType
+        let connection_type = match model[0].get("connType") {
+            Some(conn_type) => conn_type,
+            None => {
+                log::error!("Failed to get the connection type for the model: {:#?}", model[0].get("name"));
+                std::process::exit(1);
+            }
+        };
+
+        // Print the model name
+        log::info!("Creating the MEAL instance for the model: {:#?} with connection type: {:#?}", model_name, connection_type);
+
+        // Create the MEAL instance
+        if connection_type == "ssh" || connection_type == "local" {
+            // Create the MEALArgs instance
+            let meal_args = meal::MEALArgs {
+                meal_config: model.clone(),
+            };
+
+            // Create the MEAL instance
+            let meal = match meal::MEAL::create(&connection_type, meal_args) {
+                Ok(instance) => instance,
+                Err(error) => {
+                    log::error!("Failed to create the MEAL instance: {:#?}", error);
+                    std::process::exit(1);
+                }
+            };
+
+            // Add the MEAL instance to the vector of MEAL instances for the same model, defined by the model name
+            match meal_instances.get_mut(&model_name) {
+                Some(meal_vec) => meal_vec.push(meal),
+                None => {
+                    meal_instances.insert(model_name, vec![meal]);
+                }
+            }
+            
+
+        } else {
+            log::error!("Unsupported connection type: {:#?}", connection_type);
+        }
+    }
 
     // Initialize other structs
 

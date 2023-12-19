@@ -34,7 +34,7 @@ CREATE type::thing("AvailableModels", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- Model parameters
-    name: "admin1-model1",
+    name: "model1",
     connType: "ssh",
 
     -- Dynamic connTypeParams table
@@ -77,7 +77,7 @@ CREATE type::thing("AvailableModels", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- Model parameters
-    name: "admin1-model2",
+    name: "model2",
     connType: "ssh",
 
     -- Dynamic connTypeParams table
@@ -121,7 +121,7 @@ CREATE type::thing("AvailableModels", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- Model parameters
-    name: "admin2-model1",
+    name: "model1",
     connType: "ssh",
 
     -- Dynamic connTypeParams table
@@ -165,7 +165,7 @@ CREATE type::thing("AvailableModels", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- Model parameters
-    name: "admin2-model2",
+    name: "model2",
     connType: "ssh",
 
     -- Dynamic connTypeParams table

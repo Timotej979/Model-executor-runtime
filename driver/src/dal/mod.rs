@@ -39,7 +39,7 @@ impl DAL {
             "surreal" => Box::new(surreal::SurrealDriver::new(dal_args)),
             // Add other DAL drivers here, when implemented
             _ => {
-                log::error!("Unknown DAL driver type: {}", driver_type);
+                log::error!("Unknown DAL driver type: {:#?}", driver_type);
                 return Err("Unknown DAL driver type: ".to_string() + driver_type);
             }
         };

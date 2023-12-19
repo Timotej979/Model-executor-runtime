@@ -45,7 +45,7 @@ impl DatabaseDriver for SurrealDriver {
     //////////////////////////////////////////////////////
 
     async fn connect(&mut self) -> Result<(), String> {
-        log::info!("Connecting to the DB with url: {} and username: {}", self.connection_url, self.username);
+        log::info!("Connecting to the DB with url: {:#?} and username: {:#?}", self.connection_url, self.username);
 
         // Check if the connection URL includes localhost
         if self.connection_url.starts_with("localhost:") || self.connection_url.starts_with("127.0.0.1:") || self.connection_url.starts_with("0.0.0.0:") {
@@ -108,7 +108,7 @@ impl DatabaseDriver for SurrealDriver {
         
         // Loop over the available model UUIDs to get their properties
         for available_model_uuid in available_model_uuids {
-            log::debug!("Processing model with UUID: {:?}", available_model_uuid);
+            log::debug!("Processing model with UUID: {:#?}", available_model_uuid);
 
 
             // Get the available models staitic fields
