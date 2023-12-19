@@ -29,5 +29,10 @@ impl MEALDriver for SSHDriver {
     //////////////////////////////////////////////////////
     /////// Management of the SSHDriver connection ///////
     //////////////////////////////////////////////////////
+    async fn spawn_model(&self) -> Result<tokio::process::Child, String> {
+
+    
+        Ok()
+    }
 
 }

@@ -15,7 +15,7 @@ pub trait MEALDriver {
     fn new(meal_args: MEALArgs) -> Self where Self: Sized;
     
     // MEALDriver methods
-    
+    async fn spawn_model(&self) -> Result<tokio::process::Child, String>;
 
 }
 
@@ -42,5 +42,9 @@ impl MEAL {
     }
 
     // Add MEAL methods here
+
+    pub async fn spawn_model(&self) -> Result<tokio::process::Child, String> {
+        self.driver.spawn_model().await
+    }
 
 }
