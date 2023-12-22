@@ -12,7 +12,7 @@ CREATE type::thing("ConnTypeParams", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- SSH connection configuration
-    ip: "127.0.0.1",
+    host: "127.0.0.1",
     port: 6000,
     user: "admin1",
     pass: "admin1",
@@ -55,7 +55,7 @@ CREATE type::thing("ConnTypeParams", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- SSH connection configuration
-    ip: "127.0.0.1",
+    host: "127.0.0.1",
     port: 6000,
     user: "admin1",
     pass: "admin1",
@@ -99,7 +99,7 @@ CREATE type::thing("ConnTypeParams", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- SSH connection configuration
-    ip: "127.0.0.1",
+    host: "127.0.0.1",
     port: 7000,
     user: "admin2",
     pass: "admin2",
@@ -143,7 +143,7 @@ CREATE type::thing("ConnTypeParams", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- SSH connection configuration
-    ip: "127.0.0.1",
+    host: "127.0.0.1",
     port: 7000,
     user: "admin2",
     pass: "admin2",
