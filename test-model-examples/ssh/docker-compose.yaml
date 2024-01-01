@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  openssh-server:
+    image: linuxserver/openssh-server:latest
+    container_name: openssh-server
+    restart: unless-stopped
+    environment:
+      - PUID=1000  
+      - PGID=1000  
+      - TZ=Europe/Belgrade 
+      - PASSWORD_ACCESS=true
+      - USER_NAME=admin
+      - USER_PASSWORD=admin
+    ports:
+      - 2222:22
+    volumes:
+      - ./albert:/models/albert
+      - ./bart:/models/bart

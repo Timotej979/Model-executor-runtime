@@ -118,12 +118,76 @@ impl MEALDriver for SSHDriver {
             }
         };
 
+        // Create the std pipes for the model
+        let (stdin, stdout, stderr) = match session.channel_session() {
+            Ok((stdin, stdout, stderr)) => (stdin, stdout, stderr),
+            Err(e) => {
+                log::error!("Failed to create the SSH channel");
+                return Err("Failed to create the SSH channel".to_string());
+            }
+        };
+
+
+        // Get the model path and check wether it exists on the filesystem
+        let model_path = match self.model_params.get("path") {
+            Some(path) => path,
+            None => {
+                log::error!("Failed to get the model path");
+                return Err("Failed to get the model path".to_string());
+            }
+        };
+
+        // Check if the model path exists on the remote filesystem vis SFTP
+        let model_path_exists = match session.sftp() {
+            Ok(sftp) => {
+                match sftp.stat(model_path) {
+                    Ok(_) => true,
+                    Err(e) => false,
+                }
+            },
+            Err(e) => {
+                log::error!("Failed to create the SFTP session");
+                return Err("Failed to create the SFTP session".to_string());
+            }
+        };
+        if !model_path_exists {
+            log::error!("The model path does not exist: {:#?}", model_path);
+            return Err("The model path does not exist: ".to_string() + model_path);
+        }
+
+
+        // Get the model command
+        let model_command = match self.model_params.get("command") {
+            Some(command) => command,
+            None => {
+                log::error!("Failed to get the model command");
+                return Err("Failed to get the model command".to_string());
+            }
+        };
+
         
+        // Combine the cd into model path and model command into one string
+        let model_command = "cd ".to_string() + model_path + " && " + model_command;
 
+        // Spawn a new model and check if it was successful
+        let mut model = match session.channel_session() {
+            Ok((stdin, stdout, stderr)) => (stdin, stdout, stderr),
+            Err(e) => {
+                log::error!("Failed to spawn the model");
+                return Err("Failed to spawn the model".to_string());
+            }
+        };
+        // Execute the model command
+        match model.exec(model_command.as_str()) {
+            Ok(_) => (),
+            Err(e) => {
+                log::error!("Failed to execute the model command");
+                return Err("Failed to execute the model command".to_string());
+            }
+        };
 
-        
-
-        Ok()
+        // Return the std pipes for the model
+        Ok(model)
     }
 
 }
