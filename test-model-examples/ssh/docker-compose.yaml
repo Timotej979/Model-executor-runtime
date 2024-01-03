@@ -15,5 +15,6 @@ services:
     ports:
       - 2222:22
     volumes:
-      - ./albert:/models/albert
-      - ./bart:/models/bart
+      - ./DialoGPT-small:/models/DialoGPT-small
+      - ./DialoGPT-medium:/models/DialoGPT-medium
+      - ./DialoGPT-large:/models/DialoGPT-large

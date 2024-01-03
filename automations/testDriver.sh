@@ -1,10 +1,8 @@
 #!/bin/bash
 
-cd ..
+source ../.env
 
-source .env
-
-cd driver
+cd ../driver
 
 cargo build --release
 

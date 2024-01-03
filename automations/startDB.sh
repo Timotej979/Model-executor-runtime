@@ -1,29 +1,30 @@
 #!/bin/bash
 
-cd ..
-
 # This script sets up the following:
 # 1. Sets up the environment variables for the services
-
 # 2. Runs the dockerized version of SurrealDB
-
 # 3. Compiles the release version of migrations rust binary
 # 4. Copies the sql folder from the migrations folder to migrations/target/release
 
-# 5. Compiles the release version of the driver rust binary
-# 6. Runs the release version of the driver rust binary
-
 # Set up environment variables
-source .env
+source ../.env
 
 # Run the dockerized version of SurrealDB
-docker-compose up -d
+cd ../database
+rm -rf ../automations/logs/*
+docker-compose up > ../automations/logs/db.log 2>&1 &
 
-# Wait for the dockerized version of SurrealDB to start
-sleep 5
+# Get the process ID of the background process
+db_process_pid=$!
+
+# Save the process ID to a file for later reference
+echo $db_process_pid > ../automations/.db_process_pid.txt
+
+# Wait for the database to start
+sleep 1
 
 # Compile the release version of migrations rust binary
-cd migrations
+cd ../migrations
 cargo build --release
 
 # Copy the sql folder from the migrations folder to migrations/target/release
@@ -32,11 +33,3 @@ cp -r sql target/release
 # Run the release version of migrations rust binary
 cd target/release
 ./mer-migrations
-
-# Run the release version of the driver rust binary
-#cd ..
-#cd ..
-#cd ../driver
-#cargo build --release
-#cd target/release
-#./mer-driver
