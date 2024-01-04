@@ -3,24 +3,28 @@ use super::{MEALDriver, MEALArgs};
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-// std libraries
-use std::io::{self, Read};
-use std::net::TcpStream;
-use std::time::Duration;
-
 // tokio libraries
-use tokio::time::sleep;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::sync::mpsc;
+use tokio::task;
+use tokio::net::TcpStream;
 
-// ssh libraries
-use ssh2::Session;
+// SSH library
+use makiko;
 
+
+// Create the ModelChannels struct
+struct ModelChannels {
+    stdin_tx: mpsc::Sender<Vec<String>>,
+    stdout_rx: mpsc::Receiver<Vec<String>>,
+    stderr_rx: mpsc::Receiver<Vec<String>>,
+}
 
 // Create the SSHDriver struct
 pub struct SSHDriver {
     static_fields: HashMap<String, String>,
     model_params: HashMap<String, String>,
     connection_params: HashMap<String, String>,
+    model_channels: Option<ModelChannels>,
 }
 
 #[async_trait]
@@ -35,159 +39,181 @@ impl MEALDriver for SSHDriver {
             static_fields: meal_args.meal_config[0].clone(),
             model_params: meal_args.meal_config[1].clone(),
             connection_params: meal_args.meal_config[2].clone(),
+            model_channels: None,
         }
     }
 
     //////////////////////////////////////////////////////
     /////// Management of the SSHDriver connection ///////
     //////////////////////////////////////////////////////
-    async fn spawn_model(&self) -> Result<tokio::process::Child, String> {
+    async fn spawn_model(&mut self) -> Result<(), String> {
+        // Get the host
+        let host = self.connection_params.get("host").ok_or_else(|| {
+            log::error!("Failed to get the host");
+            "Failed to get the host".to_string()
+        })?;
+        // Get the port
+        let port = self.connection_params.get("port").ok_or_else(|| {
+            log::error!("Failed to get the port");
+            "Failed to get the port".to_string()
+        })?;
+        // Get the username
+        let username = self.connection_params.get("user").ok_or_else(|| {
+            log::error!("Failed to get the username");
+            "Failed to get the username".to_string()
+        })?;
+        // Get the password
+        let password = self.connection_params.get("pass").ok_or_else(|| {
+            log::error!("Failed to get the password");
+            "Failed to get the password".to_string()
+        })?;
+        // Get the model path
+        let model_path = self.model_params.get("path").ok_or_else(|| {
+            log::error!("Failed to get the model path");
+            "Failed to get the model path".to_string()
+        })?;
+        // Get the model command
+        let model_command = self.model_params.get("command").ok_or_else(|| {
+            log::error!("Failed to get the model command");
+            "Failed to get the model command".to_string()
+        })?;
+        // Log the connection parameters
+        log::info!("Connection parameters:\n    - Host: {:#?}\n    - Port: {:#?}\n    - Username: {:#?}\n    - Password: {:#?}", host, port, username, password);
+        // Log the model parameters
+        log::info!("Model parameters:\n    - Model path: {:#?}\n    - Model command: {:#?}", model_path, model_command);
+
+        /*
+        // Open a TCP connection to the host
+        let socket = tokio::net::TcpStream::connect((host, port)).await
+            .expect("Could not open a TCP socket");
+
+        // Create the client config
+        let config = makiko::ClientConfig::default();
+        // Open the client
+        let (client, mut client_rx, client_fut) = makiko::Client::open(socket, config).ok_or_else(|| {
+            log::error!("Failed to open the client");
+            "Failed to open the client".to_string()
+        })?;
+
         
-        // Get the host, port, username and password
-        let host = match self.connection_params.get("host") {
-            Some(host) => host,
-            None => {
-                log::error!("Failed to get the host");
-                return Err("Failed to get the host".to_string());
-            }
-        };
-
-        let port = match self.connection_params.get("port") {
-            Some(port) => port,
-            None => {
-                log::error!("Failed to get the port");
-                return Err("Failed to get the port".to_string());
-            }
-        };
-
-        let username = match self.connection_params.get("user") {
-            Some(username) => username,
-            None => {
-                log::error!("Failed to get the username");
-                return Err("Failed to get the username".to_string());
-            }
-        };
+        // Spawn a Tokio task that polls the client.
+        tokio::task::spawn(async move {
+            client_fut.await.ok_or_else(|| {
+                log::error!("Error while polling the client");
+                "Error while polling the client".to_string()
+            });
+        });
         
-        let password = match self.connection_params.get("pass") {
-            Some(password) => password,
-            None => {
-                log::error!("Failed to get the password");
-                return Err("Failed to get the password".to_string());
-            }
-        };
 
-        log::info!("Connecting to {}:{} with username {}", host, port, username);
+        // Spawn another Tokio task to handle the client events.
+        tokio::task::spawn(async move {
+            loop {
+                // Wait for the next event.
+                let event = client_rx.recv().await.ok_or_else(|| {
+                    log::error!("Error while receiving the next event");
+                    "Error while receiving the next event".to_string()
+                });
 
+                // Exit the loop when the client has closed.
+                let Some(event) = event else {
+                    break
+                };
 
-        // Create the TCP stream with error handling
-        let tcp_stream = match TcpStream::connect(format!("{}:{}", host, port)).unwrap() {
-            Ok(tcp_stream) => tcp_stream,
-            Err(e) => {
-                log::error!("Failed to connect to {}:{} with username {}", host, port, username);
-                return Err("Failed to connect to ".to_string() + host + ":" + port + " with username " + username);
-            }
-        };
+                match event {
+                    // Handle the server public key: for now, we just accept all keys, but this makes
+                    // us susceptible to man-in-the-middle attacks!
+                    makiko::ClientEvent::ServerPubkey(pubkey, accept) => {
+                        println!("Server pubkey type {}, fingerprint {}", pubkey.type_str(), pubkey.fingerprint());
+                        accept.accept();
+                    },
 
-        // Create the SSH session with error handling
-        let mut session = match Session::new() {
-            Ok(session) => session,
-            Err(e) => {
-                log::error!("Failed to create the SSH session");
-                return Err("Failed to create the SSH session".to_string());
-            }
-        };
-
-        // Set the TCP stream for the SSH session
-        session.set_tcp_stream(tcp_stream);
-
-        // Handshake the SSH session
-        match session.handshake(&tcp_stream) {
-            Ok(_) => (),
-            Err(e) => {
-                log::error!("Failed to handshake the SSH session");
-                return Err("Failed to handshake the SSH session".to_string());
-            }
-        };
-
-        // Authenticate the SSH session
-        match session.userauth_password(username, password) {
-            Ok(_) => (),
-            Err(e) => {
-                log::error!("Failed to authenticate the SSH session");
-                return Err("Failed to authenticate the SSH session".to_string());
-            }
-        };
-
-        // Create the std pipes for the model
-        let (stdin, stdout, stderr) = match session.channel_session() {
-            Ok((stdin, stdout, stderr)) => (stdin, stdout, stderr),
-            Err(e) => {
-                log::error!("Failed to create the SSH channel");
-                return Err("Failed to create the SSH channel".to_string());
-            }
-        };
-
-
-        // Get the model path and check wether it exists on the filesystem
-        let model_path = match self.model_params.get("path") {
-            Some(path) => path,
-            None => {
-                log::error!("Failed to get the model path");
-                return Err("Failed to get the model path".to_string());
-            }
-        };
-
-        // Check if the model path exists on the remote filesystem vis SFTP
-        let model_path_exists = match session.sftp() {
-            Ok(sftp) => {
-                match sftp.stat(model_path) {
-                    Ok(_) => true,
-                    Err(e) => false,
+                    // All other events can be safely ignored
+                    _ => {},
                 }
-            },
-            Err(e) => {
-                log::error!("Failed to create the SFTP session");
-                return Err("Failed to create the SFTP session".to_string());
             }
-        };
-        if !model_path_exists {
-            log::error!("The model path does not exist: {:#?}", model_path);
-            return Err("The model path does not exist: ".to_string() + model_path);
+        });
+
+
+        // Try to authenticate using a password.
+        let auth_res = client.auth_password(username.into(), password.into()).await.ok_or_else(|| {
+            log::error!("Error while authenticating");
+            "Error while authenticating".to_string()
+        });
+
+        // Deal with all possible outcomes of password authentication.
+        match auth_res {
+            makiko::AuthPasswordResult::Success => {
+                log::info!("Successfully authenticated");
+            },
+            makiko::AuthPasswordResult::ChangePassword(prompt) => {
+                log::error!("The server asked us to change our password: {}", prompt);
+                return Err("The server asked us to change our password {}".to_string() + prompt);
+            },
+            makiko::AuthPasswordResult::Failure(failure) => {
+                log::error!("Authentication failed: {}", failure);
+                return Err("Authentication failed: {}".to_string() + failure);
+            },
         }
 
 
-        // Get the model command
-        let model_command = match self.model_params.get("command") {
-            Some(command) => command,
-            None => {
-                log::error!("Failed to get the model command");
-                return Err("Failed to get the model command".to_string());
-            }
-        };
+        // Open a session on the server.
+        let channel_config = makiko::ChannelConfig::default();
+        let (session, mut session_rx) = client.open_session(channel_config).await.ok_or_else(|| {
+            log::error!("Failed to open a session");
+            "Failed to open a session".to_string()
+        })?;
 
-        
-        // Combine the cd into model path and model command into one string
-        let model_command = "cd ".to_string() + model_path + " && " + model_command;
+        // Handle session events asynchronously in a Tokio task.
+        let session_event_task = tokio::task::spawn(async move {
+            loop {
+                // Wait for the next event.
+                let event = session_rx.recv().await
+                    .expect("Error while receiving session event");
 
-        // Spawn a new model and check if it was successful
-        let mut model = match session.channel_session() {
-            Ok((stdin, stdout, stderr)) => (stdin, stdout, stderr),
-            Err(e) => {
-                log::error!("Failed to spawn the model");
-                return Err("Failed to spawn the model".to_string());
-            }
-        };
-        // Execute the model command
-        match model.exec(model_command.as_str()) {
-            Ok(_) => (),
-            Err(e) => {
-                log::error!("Failed to execute the model command");
-                return Err("Failed to execute the model command".to_string());
-            }
-        };
+                // Exit the loop when the session has closed.
+                let Some(event) = event else {
+                    break
+                };
 
-        // Return the std pipes for the model
-        Ok(model)
+                match event {
+                    // Handle stdout/stderr output from the process.
+                    makiko::SessionEvent::StdoutData(data) => {
+                        println!("Process produced stdout: {:?}", data);
+                    },
+                    makiko::SessionEvent::StderrData(data) => {
+                        println!("Process produced stderr: {:?}", data);
+                    },
+
+                    // Handle exit of the process.
+                    makiko::SessionEvent::ExitStatus(status) => {
+                        println!("Process exited with status {}", status);
+                    },
+                    makiko::SessionEvent::ExitSignal(signal) => {
+                        println!("Process exited with signal {:?}: {:?}", signal.signal_name, signal.message);
+                    },
+
+                    // Ignore other events
+                    _ => {},
+                }
+            }
+        });
+
+        // Execute a command on the session
+        session.exec("sed s/blue/green/".as_bytes())
+            .expect("Could not execute a command in the session")
+            .wait().await
+            .expect("Server returned an error when we tried to execute a command in the session");
+
+        // Send some data to the standard input of the process
+        session.send_stdin("blueberry jam\n".into()).await.unwrap();
+        session.send_stdin("blue jeans\nsky blue".into()).await.unwrap();
+        session.send_eof().await.unwrap();
+
+        // Wait for the task that handles session events
+        session_event_task.await.unwrap();
+
+        */
+        Ok(())
     }
 
 }
