@@ -7,7 +7,6 @@ services:
   surrealdb:
     container_name: surrealdb
     image: surrealdb/surrealdb:latest
-    restart: unless-stopped
 
     command: start --auth --log debug --user $DB_USER --pass $DB_PASSWORD memory
 

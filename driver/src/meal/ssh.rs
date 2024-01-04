@@ -12,19 +12,11 @@ use tokio::net::TcpStream;
 use makiko;
 
 
-// Create the ModelChannels struct
-struct ModelChannels {
-    stdin_tx: mpsc::Sender<Vec<String>>,
-    stdout_rx: mpsc::Receiver<Vec<String>>,
-    stderr_rx: mpsc::Receiver<Vec<String>>,
-}
-
 // Create the SSHDriver struct
 pub struct SSHDriver {
     static_fields: HashMap<String, String>,
     model_params: HashMap<String, String>,
     connection_params: HashMap<String, String>,
-    model_channels: Option<ModelChannels>,
 }
 
 #[async_trait]
@@ -39,14 +31,13 @@ impl MEALDriver for SSHDriver {
             static_fields: meal_args.meal_config[0].clone(),
             model_params: meal_args.meal_config[1].clone(),
             connection_params: meal_args.meal_config[2].clone(),
-            model_channels: None,
         }
     }
 
     //////////////////////////////////////////////////////
     /////// Management of the SSHDriver connection ///////
     //////////////////////////////////////////////////////
-    async fn spawn_model(&mut self) -> Result<(), String> {
+    async fn spawn_model(&mut self) -> Result<(mpsc::Sender<String>, mpsc::Receiver<String>, mpsc::Receiver<String>), String> {
         // Get the host
         let host = self.connection_params.get("host").ok_or_else(|| {
             log::error!("Failed to get the host");
@@ -213,7 +204,12 @@ impl MEALDriver for SSHDriver {
         session_event_task.await.unwrap();
 
         */
-        Ok(())
+
+        let (stdin_tx, stdin_rx) = mpsc::channel::<String>(1);
+        let (stdout_tx, stdout_rx) = mpsc::channel::<String>(1);
+        let (stderr_tx, stderr_rx) = mpsc::channel::<String>(1);
+
+        Ok((stdin_tx, stdout_rx, stderr_rx))
     }
 
 }

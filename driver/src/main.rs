@@ -143,7 +143,47 @@ async fn main() {
         }
     }
 
-    // Initialize other structs
+    // Select the MEAL instance for the model
+    let local_meal_instance = match meal_instances.get_mut("DialogGPT-small") {
+        Some(meal_vec) => meal_vec,
+        None => {
+            log::error!("Failed to get the MEAL instance for the model: {:#?}", "DialogGPT-small");
+            std::process::exit(1);
+        }
+    };
+
+    // Spawn the local MEAL instance
+    let (mut local_meal_sender, mut local_meal_receiver, mut local_meal_error_receiver) = match local_meal_instance[0].spawn_model().await {
+        Ok((sender, receiver, error_receiver)) => (sender, receiver, error_receiver),
+        Err(error) => {
+            log::error!("Failed to spawn the local MEAL instance: {:#?}", error);
+            std::process::exit(1);
+        }
+    };
+
+    // Send the message to the local MEAL instance
+    let _ = local_meal_sender.send("Hello from the driver!".to_string()).await;
+    log::info!("Sent message to the local MEAL instance");
+
+    // Receive the message from the local MEAL instance
+    let message = match local_meal_receiver.recv().await {
+        Some(message) => message,
+        None => {
+            log::error!("Failed to receive the message from the local MEAL instance");
+            std::process::exit(1);
+        }
+    };
+    log::info!("Received message from the local MEAL instance: {:#?}", message);
+
+    // Receive the error from the local MEAL instance
+    let error = match local_meal_error_receiver.recv().await {
+        Some(error) => error,
+        None => {
+            log::error!("Failed to receive the error from the local MEAL instance");
+            std::process::exit(1);
+        }
+    };
+    log::info!("Received error from the local MEAL instance: {:#?}", error);
 
     ///////////////////////////////////////////////////////////////////////////////////////
 

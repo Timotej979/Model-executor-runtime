@@ -15,7 +15,7 @@ Cargo.lock
 
 
 # Remove real models which are accessible from the web
-05-CreateRealModels.sql
+05-CreateAvailableRealModels.sql
 
 # Remove transformer-venv and weights folder
 transformer-venv/

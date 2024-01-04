@@ -2,6 +2,7 @@
 use std::result::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
+use tokio::sync::mpsc;
 
 // Define MEALArgs struct
 pub struct MEALArgs {
@@ -15,7 +16,7 @@ pub trait MEALDriver {
     fn new(meal_args: MEALArgs) -> Self where Self: Sized;
     
     // MEALDriver methods
-    async fn spawn_model(&mut self) -> Result<(), String>;
+    async fn spawn_model(&mut self) -> Result<(mpsc::Sender<String>, mpsc::Receiver<String>, mpsc::Receiver<String>), String>;
 
 }
 
@@ -42,8 +43,7 @@ impl MEAL {
     }
 
     // Add MEAL methods here
-
-    pub async fn spawn_model(&mut self) -> Result<(), String> {
+    pub async fn spawn_model(&mut self) -> Result<(mpsc::Sender<String>, mpsc::Receiver<String>, mpsc::Receiver<String>), String> {
         self.driver.spawn_model().await
     }
 
@@ -55,6 +55,7 @@ impl MEAL {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::prelude::Utc;
     use std::collections::HashMap;
 
     // MEALArgs are comprised of a Vec of HashMaps (Depending on the driver type):
@@ -63,7 +64,7 @@ mod tests {
         //   - connection_params: HashMap<String, String>
 
     #[tokio::test]
-    async fn test_local_meal() {
+    async fn test_local_meal_1() {
         
         // Create testing MEALArgs for local MEAL using DialoGPT-small
         let mut meal_config: Vec<HashMap<String, String>> = Vec::new();
@@ -73,19 +74,82 @@ mod tests {
         let mut connection_params: HashMap<String, String> = HashMap::new();
 
         // Add static_fields
+        static_fields.insert("uid".to_string(), "1".to_string());
+        static_fields.insert("createdAt".to_string(), Utc::now().to_string());
+        static_fields.insert("lastUpdated".to_string(), Utc::now().to_string());
         static_fields.insert("name".to_string(), "DialogGPT-small".to_string());
         static_fields.insert("connType".to_string(), "local".to_string());
 
         // Get the current directory and move one layer up to the project root
         let mut current_dir = std::env::current_dir().unwrap();
         current_dir.pop();
-        current_dir.pop();
         // Add the DialoGPT-small path to the current directory
-        current_dir.push("test-models/local/DialogGPT-small");
-
+        current_dir.push("test-models/local/DialoGPT-small");
         // Print the current directory
-        println!("DialogGPT-small path: {:#?}", current_dir);
+        println!("Current directory: {:#?}", current_dir);
+
+        // Generate the command to run DialoGPT-small within a Python3 virtual environment
+        let command = "python3 -m venv transformer-venv && source transformer-venv/bin/activate && pip install 'transformers[torch]' && python3 inference.py";
+
+        // Add model_params
+        model_params.insert("modelPath".to_string(), current_dir.to_str().unwrap().to_string());
+        model_params.insert("inferenceCommand".to_string(), command.to_string());
+        model_params.insert("runToken".to_string(), "@!#READY#!@".to_string());
+        model_params.insert("exitToken".to_string(), "@!#EXIT#!@".to_string());
+        model_params.insert("startToken".to_string(), "@!#START#!@".to_string());
+        model_params.insert("stopToken".to_string(), "@!#STOP#!@".to_string());
+
+        // Add connection_params
+        connection_params.insert("createdAt".to_string(), Utc::now().to_string());
+        connection_params.insert("lastUpdated".to_string(), Utc::now().to_string());
+
+        // Add HashMaps to meal_config
+        meal_config.push(static_fields);
+        meal_config.push(model_params);
+        meal_config.push(connection_params);
+
+        // Create MEALArgs
+        let meal_args = MEALArgs {
+            meal_config: meal_config,
+        };
+
+        // Create MEAL
+        let mut meal = MEAL::create("local", meal_args).unwrap();
+
+        // Spawn the model
+        let (mut stdout_tx, mut stdout_rx, mut stderr_rx) = meal.spawn_model().await.unwrap();
+
+        // Wait for the model to be ready
+        let mut ready = false;
+        while !ready {
+            let stdout = stdout_rx.recv().await.unwrap();
+            if stdout.contains("@!#READY#!@") {
+                ready = true;
+            }
+        }
 
 
+        // Send a message to the model encapsulated in the start and stop tokens
+        let prompt = "Hello, how are you?";
+        let prompt = "@!#START#!@\n".to_string() + prompt + "@!#STOP#!@\n";
+        stdout_tx.send(prompt.clone()).await.unwrap();
+
+        // Wait for the model to respond
+        let mut response = String::new();
+        while !response.contains("@!#STOP#!@") {
+            let stdout = stdout_rx.recv().await.unwrap();
+            response = stdout;
+        }
+
+        // Remove the start and stop tokens from the response
+        response = response.replace("@!#START#!@\n", "");
+        response = response.replace("@!#STOP#!@\n", "");
+
+        // Print the prompt and response
+        println!("Prompt: {:#?}", prompt);
+        println!("Response: {:#?}", response);
+
+        // Send the exit token to the model
+        stdout_tx.send("@!#EXIT#!@".to_string());
     }
 }
