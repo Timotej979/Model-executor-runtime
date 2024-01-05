@@ -1,7 +1,9 @@
 // src/meal/local.rs
 use super::{MEALDriver, MEALArgs};
-use async_trait::async_trait;
+use std::fmt;
 use std::collections::HashMap;
+use async_trait::async_trait;
+
 
 // Std libraries
 use std::process::Stdio;
@@ -123,4 +125,16 @@ impl MEALDriver for LocalDriver {
     }
 
 
+}
+
+// Implementation of debug for LocalDriver
+impl fmt::Debug for LocalDriver {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Print all the fields of LocalDriver
+        f.debug_struct("LocalDriver")
+            .field("static_fields", &self.static_fields)
+            .field("model_params", &self.model_params)
+            .field("connection_params", &self.connection_params)
+            .finish()
+    }
 }

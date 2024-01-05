@@ -1,7 +1,9 @@
 // src/meal/ssh.rs
 use super::{MEALDriver, MEALArgs};
-use async_trait::async_trait;
+use std::fmt;
 use std::collections::HashMap;
+use async_trait::async_trait;
+
 
 // tokio libraries
 use tokio::sync::mpsc;
@@ -212,4 +214,16 @@ impl MEALDriver for SSHDriver {
         Ok((stdin_tx, stdout_rx, stderr_rx))
     }
 
+}
+
+// Implementation of debug for SSHDriver
+impl fmt::Debug for SSHDriver {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Print all the fields of SSHDriver
+        f.debug_struct("SSHDriver")
+            .field("static_fields", &self.static_fields)
+            .field("model_params", &self.model_params)
+            .field("connection_params", &self.connection_params)
+            .finish()
+    }
 }

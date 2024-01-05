@@ -1,7 +1,8 @@
 // src/meal/mod.rs
+use std::fmt;
 use std::result::Result;
-use async_trait::async_trait;
 use std::collections::HashMap;
+use async_trait::async_trait;
 use tokio::sync::mpsc;
 
 // Define MEALArgs struct
@@ -10,7 +11,7 @@ pub struct MEALArgs {
 }
 
 #[async_trait]
-pub trait MEALDriver {
+pub trait MEALDriver: fmt::Debug + Send + Sync {
     
     // Create the MEALDriver constructor
     fn new(meal_args: MEALArgs) -> Self where Self: Sized;
@@ -24,10 +25,10 @@ pub mod local;
 pub mod ssh;
 
 // MEAL struct
+#[derive(Debug)]
 pub struct MEAL {
     driver: Box<dyn MEALDriver>,
 }
-
 impl MEAL {
     pub fn create(driver_type: &str, meal_args: MEALArgs) -> Result<Self, String> {
         let driver: Box<dyn MEALDriver> = match driver_type {
@@ -46,8 +47,8 @@ impl MEAL {
     pub async fn spawn_model(&mut self) -> Result<(mpsc::Sender<String>, mpsc::Receiver<String>, mpsc::Receiver<String>), String> {
         self.driver.spawn_model().await
     }
-
 }
+
 
 
 // Unit tests

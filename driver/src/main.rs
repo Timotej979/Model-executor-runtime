@@ -96,11 +96,9 @@ async fn main() {
 
     // Create the MEAL instances for every available model
     let mut meal_instances: HashMap<String, Vec<meal::MEAL>> = HashMap::new();
-
     for model in available_models {
         // Get the model name
         let model_name = model[0].get("name").cloned().unwrap_or_default();
-
         // Get the model connectionType
         let connection_type = match model[0].get("connType") {
             Some(conn_type) => conn_type,
@@ -109,17 +107,14 @@ async fn main() {
                 std::process::exit(1);
             }
         };
-
         // Print the model name
         log::info!("Creating the MEAL instance for the model: {:#?} with connection type: {:#?}", model_name, connection_type);
-
         // Create the MEAL instance
         if connection_type == "ssh" || connection_type == "local" {
             // Create the MEALArgs instance
             let meal_args = meal::MEALArgs {
                 meal_config: model.clone(),
             };
-
             // Create the MEAL instance
             let meal = match meal::MEAL::create(&connection_type, meal_args) {
                 Ok(instance) => instance,
@@ -128,7 +123,6 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-
             // Add the MEAL instance to the vector of MEAL instances for the same model, defined by the model name
             match meal_instances.get_mut(&model_name) {
                 Some(meal_vec) => meal_vec.push(meal),
@@ -136,18 +130,19 @@ async fn main() {
                     meal_instances.insert(model_name, vec![meal]);
                 }
             }
-            
-
         } else {
             log::error!("Unsupported connection type: {:#?}", connection_type);
         }
     }
 
-    // Select the MEAL instance for the model
+    // Print the MEAL instances
+    log::info!("MEAL instances: {:#?}", meal_instances);
+
+    // Select one local MEAL instance via the driver name
     let local_meal_instance = match meal_instances.get_mut("DialogGPT-small") {
         Some(meal_vec) => meal_vec,
         None => {
-            log::error!("Failed to get the MEAL instance for the model: {:#?}", "DialogGPT-small");
+            log::error!("Failed to get the local MEAL instance");
             std::process::exit(1);
         }
     };
@@ -184,7 +179,7 @@ async fn main() {
         }
     };
     log::info!("Received error from the local MEAL instance: {:#?}", error);
-
+    
     ///////////////////////////////////////////////////////////////////////////////////////
 
 
