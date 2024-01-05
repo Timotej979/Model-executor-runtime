@@ -27,7 +27,8 @@ sleep 1
 cd ../migrations
 cargo build --release
 
-# Copy the sql folder from the migrations folder to migrations/target/release
+# Copy the sql folder from the migrations folder to migrations/target/release and before that delete the existing sql folder
+rm -rf target/release/sql
 cp -r sql target/release
 
 # Run the release version of migrations rust binary
