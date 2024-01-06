@@ -26,7 +26,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 # Define tokens for controlling the program
-RUNNING_TOKEN = "@!#RUNNING#!@"
+READY_TOKEN = "@!#READY#!@"
 EXIT_TOKEN = "@!#EXIT#!@"
 START_TOKEN = "@!#START#!@"
 STOP_TOKEN = "@!#STOP#!@"
@@ -66,7 +66,7 @@ chat_history_ids = None
 step = 0
 
 # Print the running token to indicate that the model is ready
-print(RUNNING_TOKEN)
+print(READY_TOKEN)
 
 # Start the REPL loop
 while True:

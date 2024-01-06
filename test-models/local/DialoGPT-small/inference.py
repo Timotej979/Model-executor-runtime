@@ -26,7 +26,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 # Define tokens for controlling the program
-RUNNING_TOKEN = "@!#RUNNING#!@"
+READY_TOKEN = "@!#READY#!@"
 EXIT_TOKEN = "@!#EXIT#!@"
 START_TOKEN = "@!#START#!@"
 STOP_TOKEN = "@!#STOP#!@"
@@ -66,7 +66,7 @@ chat_history_ids = None
 step = 0
 
 # Print the running token to indicate that the model is ready
-print(RUNNING_TOKEN)
+print(READY_TOKEN)
 
 # Start the REPL loop
 while True:
@@ -106,7 +106,9 @@ while True:
                 chat_history_ids = model.generate(bot_input_ids, max_length=1000, pad_token_id=tokenizer.eos_token_id)
 
                 # Decode and print the response
+                print(START_TOKEN)
                 print(tokenizer.decode(chat_history_ids[:, bot_input_ids.shape[-1]:][0], skip_special_tokens=True))
+                print(STOP_TOKEN)
 
                 # Increment the step
                 step = step + 1

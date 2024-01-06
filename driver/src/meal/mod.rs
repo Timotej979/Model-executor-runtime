@@ -43,7 +43,12 @@ impl MEAL {
         Ok(Self { driver })
     }
 
-    // Add MEAL methods here
+    // Get the driver type
+    pub fn driver_type(&self) -> String {
+        format!("{:#?}", self.driver)
+    }
+
+    // Spawn the model
     pub async fn spawn_model(&mut self) -> Result<(mpsc::Sender<String>, mpsc::Receiver<String>, mpsc::Receiver<String>), String> {
         self.driver.spawn_model().await
     }
@@ -78,7 +83,7 @@ mod tests {
         static_fields.insert("uid".to_string(), "1".to_string());
         static_fields.insert("createdAt".to_string(), Utc::now().to_string());
         static_fields.insert("lastUpdated".to_string(), Utc::now().to_string());
-        static_fields.insert("name".to_string(), "DialogGPT-small".to_string());
+        static_fields.insert("name".to_string(), "DialoGPT-small".to_string());
         static_fields.insert("connType".to_string(), "local".to_string());
 
         // Get the current directory and move one layer up to the project root
@@ -90,12 +95,12 @@ mod tests {
         println!("Current directory: {:#?}", current_dir);
 
         // Generate the command to run DialoGPT-small within a Python3 virtual environment
-        let command = "python3 -m venv transformer-venv && source transformer-venv/bin/activate && pip install 'transformers[torch]' && python3 inference.py";
+        let command = "conda activate transformer-venv && python3 inference.py".to_string();
 
         // Add model_params
         model_params.insert("modelPath".to_string(), current_dir.to_str().unwrap().to_string());
         model_params.insert("inferenceCommand".to_string(), command.to_string());
-        model_params.insert("runToken".to_string(), "@!#READY#!@".to_string());
+        model_params.insert("readyToken".to_string(), "@!#READY#!@".to_string());
         model_params.insert("exitToken".to_string(), "@!#EXIT#!@".to_string());
         model_params.insert("startToken".to_string(), "@!#START#!@".to_string());
         model_params.insert("stopToken".to_string(), "@!#STOP#!@".to_string());
@@ -106,8 +111,8 @@ mod tests {
 
         // Add HashMaps to meal_config
         meal_config.push(static_fields);
-        meal_config.push(model_params);
         meal_config.push(connection_params);
+        meal_config.push(model_params);
 
         // Create MEALArgs
         let meal_args = MEALArgs {
@@ -117,25 +122,40 @@ mod tests {
         // Create MEAL
         let mut meal = MEAL::create("local", meal_args).unwrap();
 
+        println!("MEAL: {:#?}", meal);
+
         // Spawn the model
         let (mut stdout_tx, mut stdout_rx, mut stderr_rx) = meal.spawn_model().await.unwrap();
 
         // Wait for the model to be ready
+        println!("Waiting for the model to be ready...");
         let mut ready = false;
         while !ready {
             let stdout = stdout_rx.recv().await.unwrap();
+            let stderr = stderr_rx.recv().await.unwrap();
+            
             if stdout.contains("@!#READY#!@") {
                 ready = true;
+            } 
+
+            if stdout.len() > 0 {
+                println!("stdout: {:#?}", stdout);
+            }
+
+            if stderr.len() > 0 {
+                println!("stderr: {:#?}", stderr);
             }
         }
 
 
         // Send a message to the model encapsulated in the start and stop tokens
+        println!("Sending a message to the model...");
         let prompt = "Hello, how are you?";
         let prompt = "@!#START#!@\n".to_string() + prompt + "@!#STOP#!@\n";
         stdout_tx.send(prompt.clone()).await.unwrap();
 
         // Wait for the model to respond
+        println!("Waiting for the model to respond...");
         let mut response = String::new();
         while !response.contains("@!#STOP#!@") {
             let stdout = stdout_rx.recv().await.unwrap();
@@ -151,6 +171,7 @@ mod tests {
         println!("Response: {:#?}", response);
 
         // Send the exit token to the model
-        stdout_tx.send("@!#EXIT#!@".to_string());
+        println!("Sending the exit token to the model...");
+        stdout_tx.send("@!#EXIT#!@".to_string()).await.unwrap();
     }
 }

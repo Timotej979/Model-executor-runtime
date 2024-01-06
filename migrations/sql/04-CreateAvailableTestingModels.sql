@@ -158,7 +158,7 @@ CREATE type::thing("ModelParams", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- Model parameters
-    inferenceCommand: "python3 inference.py",
+    inferenceCommand: "conda activate transformer-venv && python3 inference.py",
     trainCommand: "python3 train.py",
     modelPath: "/home/timotej/Documents/GitProjects/Model-executor-runtime/test-models/local/DialoGPT-small",
 } RETURN uid;
@@ -199,7 +199,7 @@ CREATE type::thing("ModelParams", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- Model parameters
-    inferenceCommand: "python3 inference.py",
+    inferenceCommand: "conda activate transformer-venv && python3 inference.py",
     trainCommand: "python3 train.py",
     modelPath: "/home/timotej/Documents/GitProjects/Model-executor-runtime/test-models/local/DialoGPT-medium",
 } RETURN uid;
@@ -239,7 +239,7 @@ CREATE type::thing("ModelParams", $modelUID) CONTENT {
     lastUpdated: time::now(),
 
     -- Model parameters
-    inferenceCommand: "python3 inference.py",
+    inferenceCommand: "conda activate transformer-venv && python3 inference.py",
     trainCommand: "python3 train.py",
     modelPath: "/home/timotej/Documents/GitProjects/Model-executor-runtime/test-models/local/DialoGPT-large",
 } RETURN uid;

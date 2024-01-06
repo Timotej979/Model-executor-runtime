@@ -1,0 +1,11 @@
+name: transformer-venv
+channels:
+  - defaults
+  - pytorch
+  - huggingface
+dependencies:
+  - python=3.8
+  - pytorch
+  - torchvision
+  - torchaudio
+  - transformers

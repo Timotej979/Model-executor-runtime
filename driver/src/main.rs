@@ -138,47 +138,76 @@ async fn main() {
     // Print the MEAL instances
     log::info!("MEAL instances: {:#?}", meal_instances);
 
-    // Select one local MEAL instance via the driver name
-    let local_meal_instance = match meal_instances.get_mut("DialogGPT-small") {
-        Some(meal_vec) => meal_vec,
-        None => {
-            log::error!("Failed to get the local MEAL instance");
-            std::process::exit(1);
-        }
-    };
 
-    // Spawn the local MEAL instance
-    let (mut local_meal_sender, mut local_meal_receiver, mut local_meal_error_receiver) = match local_meal_instance[0].spawn_model().await {
-        Ok((sender, receiver, error_receiver)) => (sender, receiver, error_receiver),
+
+
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    let mut local_meal_instance = &mut meal_instances.get_mut("DialoGPT-small").unwrap()[1];
+
+    let (mut tx, mut rx, mut rx_err) = match local_meal_instance.spawn_model().await {
+        Ok((tx, rx, rx_err)) => (tx, rx, rx_err),
         Err(error) => {
-            log::error!("Failed to spawn the local MEAL instance: {:#?}", error);
+            log::error!("Failed to spawn the model: {:#?}", error);
             std::process::exit(1);
         }
     };
 
-    // Send the message to the local MEAL instance
-    let _ = local_meal_sender.send("Hello from the driver!".to_string()).await;
-    log::info!("Sent message to the local MEAL instance");
+    let mut ready = false;
+    while !ready {
+        
+        let stdout = match rx.try_recv() {
+            Ok(stdout) => stdout,
+            Err(_) => "".to_string(),
+        };
 
-    // Receive the message from the local MEAL instance
-    let message = match local_meal_receiver.recv().await {
+        let stderr = match rx_err.try_recv() {
+            Ok(stderr) => stderr,
+            Err(_) => "".to_string(),
+        };
+
+        if stdout.contains("@!#READY#!@") {
+            ready = true;
+        }
+
+        if !stdout.is_empty() {
+            log::info!("Model stdout: {:#?}", stdout);
+        }
+    }
+
+    // Send the message to the model
+    log::info!("Sending the message to the model...");
+    let _ = tx.send("@!#START#!@\nHello, how are you?\n@!#STOP#!@\n".to_string()).await;
+
+    // Receive the message from the model
+    let message = match rx.recv().await {
         Some(message) => message,
         None => {
-            log::error!("Failed to receive the message from the local MEAL instance");
+            log::error!("Failed to receive the message from the model");
             std::process::exit(1);
         }
     };
-    log::info!("Received message from the local MEAL instance: {:#?}", message);
+    log::info!("Message from the model: {:#?}", message);
 
-    // Receive the error from the local MEAL instance
-    let error = match local_meal_error_receiver.recv().await {
+    // Receive the error from the model
+    let error = match rx_err.recv().await {
         Some(error) => error,
         None => {
-            log::error!("Failed to receive the error from the local MEAL instance");
+            log::error!("Failed to receive the error from the model");
             std::process::exit(1);
         }
     };
-    log::info!("Received error from the local MEAL instance: {:#?}", error);
+    log::info!("Error from the model: {:#?}", error);
+
+
+
+
+
+    
+
+    
+
+
     
     ///////////////////////////////////////////////////////////////////////////////////////
 

@@ -194,10 +194,7 @@ impl DatabaseDriver for SurrealDriver {
 
             
             // Insert the available model static fields, connection params and model params into a vector
-            let mut available_model = Vec::new();
-            available_model.push(static_fields);
-            available_model.push(connection_params);
-            available_model.push(model_params);
+            let available_model: Vec<HashMap<String, String>> = vec![static_fields, connection_params, model_params];
 
             // Insert the available model into the available models vector
             available_models.push(available_model);

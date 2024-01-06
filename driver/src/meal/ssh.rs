@@ -31,8 +31,8 @@ impl MEALDriver for SSHDriver {
     fn new(meal_args: MEALArgs) -> Self {
         Self {
             static_fields: meal_args.meal_config[0].clone(),
-            model_params: meal_args.meal_config[1].clone(),
-            connection_params: meal_args.meal_config[2].clone(),
+            connection_params: meal_args.meal_config[1].clone(),
+            model_params: meal_args.meal_config[2].clone(),
         }
     }
 
@@ -61,12 +61,12 @@ impl MEALDriver for SSHDriver {
             "Failed to get the password".to_string()
         })?;
         // Get the model path
-        let model_path = self.model_params.get("path").ok_or_else(|| {
+        let model_path = self.model_params.get("modelPath").ok_or_else(|| {
             log::error!("Failed to get the model path");
             "Failed to get the model path".to_string()
         })?;
         // Get the model command
-        let model_command = self.model_params.get("command").ok_or_else(|| {
+        let model_command = self.model_params.get("inferenceCommand").ok_or_else(|| {
             log::error!("Failed to get the model command");
             "Failed to get the model command".to_string()
         })?;
